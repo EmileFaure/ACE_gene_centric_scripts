@@ -1,2 +1,16 @@
-# ACE_gene_centric_scripts
-Scripts to reproduce results from Water mass specific genes dominate the Southern Ocean microbiome (Faure et al., 2024)
+# Water mass specific genes dominate the Southern Ocean
+
+This repository contains bash, R and python code generated and used for the analysis of microbial genes in the Southern Ocean based on the Antarctic Circumnavigation Expedition (ACE) metagenomes.  
+
+Authors: Emile Faure, Lisa-Marie Delpech
+
+#### Folders organization
+
+* [00_METADATA_TREATMENT](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/00_METADATA_TREATMENT) - R scripts used to concatenate, explore and impute missing values in CTD metadata from the ACE campaign.
+* [01_GENE_MATRIX_CONCATENATION_NORMALIZATION](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/01_GENE_MATRIX_CONCATENATION_NORMALIZATION) - Bash and R scripts used to concatenate, aggregate and normalize mapping outputs produced by the [NOEMIE pipeline]( https://gitlab.ifremer.fr/bioinfo/workflows/noemie), developed by Cyril Noel and Emile Faure for this study. 1st step : concatenate all outputs in one matrix. 2nd and 3rd step : aggregate mapping results at CD-Hit and AGNOSTOS cluster-level resp., by summing mapping outputs from genes belonging to the same cluster. 4th step : Apply a threshold on detection to remove coverage values corresponding to low detections (i.e. low breadth of coverage). 5th step : Remove discarded clusters from the AGNOSTOS-aggregated matrix. 6th step : Use DESeq2 to normalize the obtained coverage matrices.
+* [02_STATISTICS_GENE_MAT](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/02_STATISTICS_GENE_MAT) - Bash, R and python scripts used to statistically explore gene matrices produced by NOEMIE. Includes all R codes used to produce the NMDS and associated statistics, the random forest regressions and their permuted versions, and the redundancy analysis at CAG level. Also includes the python scripts used to create CAGs in each size fraction before implementing them in the RDA, and bash scripts used to concatenate results of individual random forest regressions.   
+* [03_STATISTICS_CAGs_OF_INTEREST](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/03_STATISTICS_CAGs_OF_INTEREST) - Bash scripts used to retrieve and extract functional and taxonomic annotations of CAGs of interest, and R scripts used to statistically explore the content of CAGs of interest in terms of function and taxonomy.
+* [04_TAXO_ANNOT_CONTIGS_CAGs](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/04_TAXO_ANNOT_CONTIGS_CAGs) - Bash script used to obtain contigs level taxonomic annotation for specific CAGs of interest, using MMSeqs2 and UniRef90.
+* [05_ANALYZE_TARA_MAPPING](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/05_ANALYZE_TARA_MAPPING) - Bash scripts used to quality check the fastq files from TARA Oceans and Polar Circle metagenomes before they were used through the NOEMIE pipeline with the ACE contigs as reference. Bash scripts used to manipulate NOEMIE outputs. R script used to test the enrichment of specific functions in polar genes.
+
+
