@@ -13,4 +13,7 @@ Authors: Emile Faure, Lisa-Marie Delpech
 * [04_TAXO_ANNOT_CONTIGS_CAGs](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/04_TAXO_ANNOT_CONTIGS_CAGs) - Bash script used to obtain contigs level taxonomic annotation for specific CAGs of interest, using MMSeqs2 and UniRef90.
 * [05_ANALYZE_TARA_MAPPING](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/05_ANALYZE_TARA_MAPPING) - Bash scripts used to quality check the fastq files from TARA Oceans and Polar Circle metagenomes before they were used through the NOEMIE pipeline with the ACE contigs as reference. Bash scripts used to manipulate NOEMIE outputs. R script used to test the enrichment of specific functions in polar genes.
 
+#### Home functions
+
+The [HOME_FUNCTIONS](https://github.com/EmileFaure/ACE_gene_centric_scripts/tree/main/HOME_FUNCTIONS) folder contains homemade R functions used in some of the R scripts 02 and 03 folders.
 
