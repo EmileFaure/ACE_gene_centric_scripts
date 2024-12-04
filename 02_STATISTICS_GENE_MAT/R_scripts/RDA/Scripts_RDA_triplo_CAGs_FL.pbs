@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=50G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=2
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="RDA_plot_FL"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/R/4.2.1/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/R_scripts/RDA
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+Rscript Scripts_RDA_CAGs_FL.R >& $LOGDIR/$LOG 2>&1
+

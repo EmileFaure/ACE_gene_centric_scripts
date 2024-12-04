@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=150G
+#PBS -l walltime=10:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="EXTRACT_TARANONPOLAR"_"$TIMESTAMP"_"$PBS_ARRAY_INDEX"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+
+########################################
+##          Execute script            ##
+########################################
+
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+WORKDIR=/home/datawork-lmee-intranet-nos/DNA_BANK/MetaG/TARA/QC_READS/MAPPING_TARA_TOPC_Emile/results/02_final_results/03_profile_blitz
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/Tara_Mapping_metrics
+
+cd $OUTDIR
+
+# Loop through each file
+
+# Loop through each file in the list
+#while IFS= read -r file_name; do
+#    # Filter lines with value above 0.6 in the 5th column and append to output file
+#    awk 'NR > 1 && $5 > 0.6' $WORKDIR/$file_name | cut -f1 >> genes_detected_in_non_polar.txt
+#done < list_nonpolar_samples.txt
+
+#sort genes_detected_in_non_polar.txt | uniq > tmp
+#mv tmp genes_detected_in_non_polar.txt
+
+#while IFS= read -r file_name; do
+    # Filter lines with value above 0.6 in the 5th column and append to output file
+#    awk 'NR > 1 && $5 > 0.6' $WORKDIR/$file_name | cut -f1 >> genes_detected_in_AO.txt
+#done < list_arctic_samples.txt
+
+#sort genes_detected_in_AO.txt | uniq > tmp
+#mv tmp genes_detected_in_AO.txt
+
+#grep -Fwvf genes_detected_in_non_polar.txt genes_detected_in_AO.txt > genes_detected_in_AO_only.txt
+
+# Create dic of anvio ids to full names
+#awk 'BEGIN{OFS=FS="\t"}{print $1,"ACE_"$2"_"$1}' $WORKDIR/ANE_004_05M_profile_blitz.txt > ../dic_anvio_to_GNAME_genes.tsv
+
+# Extract full GNAME of polar genes
+#awk '{print "_"$0}' genes_detected_in_AO_only.txt > tmp_polar_genes
+
+#awk 'BEGIN{OFS=FS="\t"}FNR==NR{a[$1]=$2; next}{print a[$1]}' ../dic_anvio_to_GNAME_genes.tsv genes_detected_in_AO_only.txt > Polar_genes.txt
+
+#awk 'BEGIN{OFS=FS="\t"}FNR==NR{a[$1]=$0; next}{print a[$1]}' /home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES/Annotation_Table_AGN_CDH_Tax_KEGG_EGG.tsv Polar_genes.txt > Annotation_Table_Polar_Genes.tsv
+
+
+
+
+

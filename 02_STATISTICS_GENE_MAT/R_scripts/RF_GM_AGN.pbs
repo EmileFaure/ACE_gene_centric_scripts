@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=400G
+#PBS -l walltime=350:00:00
+#PBS -W umask=002
+#PBS -l ncpus=56
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="RandomForests-AGC-VST"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/R/4.1.1/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/R_scripts
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+Rscript RF_GM_AGN.R >& $LOGDIR/$LOG 2>&1 
+
+
+

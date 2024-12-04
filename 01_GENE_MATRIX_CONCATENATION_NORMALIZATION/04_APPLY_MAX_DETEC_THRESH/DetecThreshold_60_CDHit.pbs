@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=500G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+# How to configure job resources ?
+# cf https://w3z.ifremer.fr/bioinfo/Cmdline-Datarmor/Tutoriels/Lancer-un-calcul-bioinfo
+
+########################################
+##      Manage script history         ##
+########################################
+# DO NOT MODIFY
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="DetecThresholdCDHit"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/R/4.2.1/env.sh
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/scripts/GENE_MATRIX_NORMALIZATION/04_APPLY_MAX_DETEC_THRESH
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/00_REF_LOGS
+cd $WORKDIR
+
+Rscript DetecThreshold_CDHit_60.R >> $LOGDIR/$LOG1 2>&1
+

@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=100G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=4
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="DetectCAGs_ALL_FL"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/anaconda/latest/etc/profile.d/conda.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/Python_scripts
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+conda activate ./conda-envs/ann-linkage-clustering_env
+python Find_CAGs_R2_All_FL.py >& $LOGDIR/$LOG 2>&1
+

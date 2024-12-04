@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=5G
+#PBS -l walltime=01:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="Dict2csv"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/anaconda/latest/etc/profile.d/conda.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/Python_scripts
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+conda activate ./conda-envs/ann-linkage-clustering_env
+python Dict_To_Text_Attached.py >& $LOGDIR/$LOG 2>&1
+

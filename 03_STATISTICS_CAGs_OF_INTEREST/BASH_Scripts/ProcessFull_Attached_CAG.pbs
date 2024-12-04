@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=50G
+#PBS -l walltime=02:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -J 1-22
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="FullProcessCAGATT"_"$TIMESTAMP"_"$PBS_ARRAY_INDEX"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/R/4.2.1/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/00_logs
+cd $WORKDIR
+
+# FREE LIVING (R2 >10%)
+
+CAG=$(awk "NR==${PBS_ARRAY_INDEX}" $OUTDIR/01_scripts/ListAttachedCAGs0fInterest_SecondRoundATT)
+
+  # Step 1 : retrieve AGC IDs from the CAG
+
+grep -w "CAG_$CAG" CAGs_T60MAX_ATT_RSquared15.txt > $OUTDIR/CAG_${CAG}_ATTRsquared15.txt
+
+ # Step 2 : retrieve the corresponding matrix of abundance
+cd $OUTDIR/01_scripts
+
+sed "s/CAG_XX/CAG_$CAG/g" Select_Clusters_fromCAGs_ATT.R > Select_Clusters_fromCAG_${CAG}_ATT.R
+
+Rscript Select_Clusters_fromCAG_${CAG}_ATT.R
+
+ # Step 3 : retrieve annotations for focal CAG
+cd $OUTDIR
+
+cut -f2 CAG_${CAG}_ATTRsquared15.txt > tmp_${CAG}
+#There are ^M characters at the end of the lines which causes grep to bug, dos2unix allows to remove these
+dos2unix tmp_${CAG}
+
+grep -Fwf tmp_${CAG} Annotation_Table_AGN_CDH_Tax_KEGG_EGG.tsv > Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_${CAG}ATT.tsv
+
+rm tmp_${CAG}
+
+ # Step 4 : retrieve taxonomical annotations from MAGs
+
+awk 'BEGIN{OFS=FS="_"}{print $1,$2,$3"_"}' Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_${CAG}ATT.tsv > list_contigs_CAG_${CAG}ATT.tsv
+
+grep -Fwf list_contigs_CAG_${CAG}ATT.tsv list_contigs_MAG_HQ_MQ_TAXO.tsv > Taxo_MAGs_CAG_${CAG}ATT.tsv
+
+sed 's/__;/__NA;/g' Taxo_MAGs_CAG_${CAG}ATT.tsv | sed 's/s__$/s__NA/g' | sed 's/;/\t/g' > tmp_${CAG}
+mv tmp_${CAG} Taxo_MAGs_CAG_${CAG}ATT.tsv
+
+# Step 5 : explore abundance, taxonomy and function
+cd $OUTDIR/01_scripts
+
+sed "s/CAG_XX/CAG_$CAG/g" Explore_and_Enrich_ATT.R > Explore_and_Enrich_${CAG}_ATT.R
+
+#Add headers to annotation
+cat ../headers_annotations.tsv ../Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_${CAG}ATT.tsv > ../tmp_${CAG}
+mv ../tmp_${CAG} ../Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_${CAG}ATT.tsv
+
+Rscript Explore_and_Enrich_${CAG}_ATT.R &> $LOGDIR/$LOG 2>&1
+
+# Cleaning
+cd $OUTDIR/02-FIGURES
+mkdir -p Figures_CAG${CAG}ATT
+mv *CAG_${CAG}ATT* Figures_CAG${CAG}ATT/
+
+
+
+
+
+
+
+

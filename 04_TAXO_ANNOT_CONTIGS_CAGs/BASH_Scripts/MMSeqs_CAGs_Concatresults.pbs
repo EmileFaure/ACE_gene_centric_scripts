@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=6G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -j oe
+
+# How to configure job resources ?
+# cf https://w3z.ifremer.fr/bioinfo/Cmdline-Datarmor/Tutoriels/Lancer-un-calcul-bioinfo
+
+########################################
+##      Manage script history         ##
+########################################
+# DO NOT MODIFY
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+
+########################################
+##      Load environment              ##
+########################################
+# ADAPT to your tool
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST/CAG_ATT_FirstRound_Splits
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST/00_LOGS
+
+cd $WORKDIR
+
+while read split; do
+ SPLITID=$(echo ${split} | awk -F'_' '{print $2}') 
+ cat Taxonomy_Uniref90_${split}.tsv >> Results_Taxo_Uniref90_${SPLITID}.tsv  
+ # rm Taxonomy_Uniref90_${split}.*
+ # rm mmseqsDB_${split}*
+done <list_firstround_splits
+
+mv Results_Taxo_Uniref90_*.tsv ../

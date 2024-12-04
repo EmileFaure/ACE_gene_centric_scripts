@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=50G
+#PBS -l walltime=1:30:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -J 1-218
+
+########################################
+##      Manage script history         ##
+########################################
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="AGREG_PerSample_bash"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES
+NCOL=$((${PBS_ARRAY_INDEX}+1))
+cd $WORKDIR
+
+awk -F'\t' 'BEGIN{OFS="\t";}(NR==1){print $0}(NR>1){          # Call awk, set O       
+       b[$1];                          # array b with index being first field 
+
+       for(i=2;i<=NF;i++)              # loop from 2nd field to last field, NF gives total no of fields in record/line
+       a[$1,i]+=$i                     # array a where index being first field SUBSEP and current value of i
+                                       # $i gives current field value,
+                                       # using += value will be summed whenever it encounters with same array index
+
+     }
+
+ END{                                  # end block here we process 
+      for(i in b)                     # loop through array b
+      {
+          printf("%s",i)               # print index value which forms  1st column
+          for(j=2;j<=NF;j++)           # loop through 2nd field to last field
+          {
+             printf("%s%s",OFS,a[i,j]) # print o/p sep and array element
+          } 
+          print "";                    # print new line
+      }
+    }' <(cut -f1,$NCOL CDHit_GENE_MAT_DET.tsv) > CDHit_GENE_MAT_DET.tsv_col_"$NCOL"
+
+
+

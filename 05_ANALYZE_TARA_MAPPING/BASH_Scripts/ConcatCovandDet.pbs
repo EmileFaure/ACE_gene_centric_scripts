@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="QC-TARA"_"$TIMESTAMP"_"$PBS_ARRAY_INDEX"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+
+########################################
+##          Execute script            ##
+########################################
+
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA
+
+cd $WORKDIR
+
+# Create the header of the output file
+#echo -e "Sample\tfirst_quartile\tmedian\tmean\tthird_quartile" > Coverage_table.tsv
+echo -e "Sample\tfirst_quartile\tmedian\tmean\tthird_quartile\tcount_above_point_six" > Detection_table.tsv
+
+# Loop through each file
+#for file in *_profile_blitz.txt_cov_stats; do
+    # Extract sample name from the file name
+#    sample_name=$(echo "$file" | cut -d'_' -f1,2,3)
+    
+    # Extract quartile values
+#    quartile_values=$(awk 'NR==2 ' "$file")
+    
+    # Output sample name and quartile values to the output file
+#    printf "%s\t%s\n" "$sample_name" "$quartile_values" >> Coverage_table.tsv
+#done
+
+# Loop through each file
+for file in *_profile_blitz.txt_det_stats; do
+    # Extract sample name from the file name
+    sample_name=$(echo "$file" | cut -d'_' -f1,2,3)
+    
+    # Extract quartile values
+    quartile_values=$(awk 'NR==2 ' "$file")
+    
+    # Output sample name and quartile values to the output file
+    printf "%s\t%s\n" "$sample_name" "$quartile_values" >> Detection_table.tsv
+done

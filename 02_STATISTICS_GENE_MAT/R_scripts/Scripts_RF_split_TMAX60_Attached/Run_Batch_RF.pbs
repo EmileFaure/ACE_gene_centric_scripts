@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l select=1:ncpus=56:mem=1G
+#PBS -l walltime=10:00:00
+#PBS -W umask=002
+#PBS -j oe
+#PBS -J 1-244
+
+# How to configure job resources ?
+# cf https://w3z.ifremer.fr/bioinfo/Cmdline-Datarmor/Tutoriels/Lancer-un-calcul-bioinfo
+
+########################################
+##      Manage script history         ##
+########################################
+# DO NOT MODIFY
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="RF_BATCH_T60_Attached"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/R/4.2.1/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/R_scripts/Scripts_RF_split_TMAX60_Attached
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+sed "s/PBS/${PBS_ARRAY_INDEX}/g" RF_Split_Base.R > RF_Split_Base_${PBS_ARRAY_INDEX}.R
+
+Rscript RF_Split_Base_${PBS_ARRAY_INDEX}.R >& $LOGDIR/$LOG 2>&1
+

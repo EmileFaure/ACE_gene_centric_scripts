@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=10:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="RetrieveCagsAnnot"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/00_logs
+cd $WORKDIR
+
+#awk 'BEGIN{FS=OFS="\t"}NR==1{print $0}NR>1{$2="AGC_"$2; print $0}' /home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES/Annotation_Table_AGN_CDH_Tax_KEGG_EGG.tsv > tmp
+
+cut -f2 CAG_29_FLRsquared10_Mertzbloom.txt > tmp2
+
+# There are ^M characters at the end of the lines which causes grep to bug, dos2unix allows to remove these
+dos2unix tmp2
+
+grep -Fwf tmp2 tmp > Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-29FL.tsv
+
+rm tmp2
+
+cut -f2 CAG_79_FLRsquared10_Mertzbloom.txt > tmp2
+
+# There are ^M characters at the end of the lines which causes grep to bug, dos2unix allows to remove these
+dos2unix tmp2
+
+grep -Fwf tmp2 tmp > Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-79FL.tsv
+
+rm tmp2
+
+cut -f2 CAG_15_ATTRsquared15_Mertzbloom.txt > tmp2
+
+# There are ^M characters at the end of the lines which causes grep to bug, dos2unix allows to remove these
+dos2unix tmp2
+
+grep -Fwf tmp2 tmp > Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-15ATT.tsv
+
+rm tmp2
+
+cut -f2 CAG_50_ATTRsquared15_Mertzbloom.txt > tmp2
+
+# There are ^M characters at the end of the lines which causes grep to bug, dos2unix allows to remove these
+dos2unix tmp2
+
+grep -Fwf tmp2 tmp > Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-50ATT.tsv
+
+rm tmp2 tmp

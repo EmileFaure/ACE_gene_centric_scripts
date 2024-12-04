@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -J 1-134
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="QC-TARA"_"$TIMESTAMP"_"$PBS_ARRAY_INDEX"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/illumina-utils/2.3/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/DNA_BANK/MetaG/TARA
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+
+cd $WORKDIR/LIST_SAMPLES_MAPPING_ACE
+
+SAMPLE=$(awk "NR==${PBS_ARRAY_INDEX}" samples_no_header.txt)
+
+iu-filter-quality-minoche ${SAMPLE}.ini --ignore-deflines >> $LOGDIR/$LOG 2>&1
+
+

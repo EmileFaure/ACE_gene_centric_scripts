@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=50G
+#PBS -l walltime=02:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -J 1-134
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="QC-TARA"_"$TIMESTAMP"_"$PBS_ARRAY_INDEX"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/illumina-utils/2.3/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/DNA_BANK/MetaG/TARA/QC_READS/MAPPING_TARA_TOPC_Emile/results/02_final_results/03_profile_blitz
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA
+
+
+FILE=$(ls ${WORKDIR} | awk "NR==${PBS_ARRAY_INDEX}")
+
+#awk -F"\t" 'NR>1{ total += $6 } END { print total/(NR-1) }' $WORKDIR/$FILE > $OUTDIR/$FILE_covmean
+
+#awk -F"\t" 'NR>1{ total += $6; data[NR-1]=$6 } 
+#            END { 
+#                n = length(data); 
+#                asort(data); 
+#                median = (n % 2 == 0) ? (data[n/2] + data[n/2 + 1]) / 2 : data[(n + 1) / 2]; 
+#                q1 = (n % 4 == 0) ? (data[n/4] + data[n/4 + 1]) / 2 : data[int(n/4) + 1]; 
+#                q3 = (n % 4 == 0) ? (data[3*n/4] + data[3*n/4 + 1]) / 2 : data[int(3*n/4) + 1]; 
+#                mean = total / n;
+#                print "first_quartile\tmedian\tmean\tthird_quartile";
+#                print q1 "\t" median "\t" mean "\t" q3;
+#            }' $WORKDIR/$FILE > $OUTDIR/${FILE}_cov_stats
+
+awk -F"\t" 'NR>1{ 
+                total += $5; 
+                data[NR-1]=$5;
+                if($5 > 0.6) count_above_point_six++;
+            } 
+            END { 
+                n = length(data); 
+                asort(data); 
+                median = (n % 2 == 0) ? (data[n/2] + data[n/2 + 1]) / 2 : data[(n + 1) / 2]; 
+                q1 = (n % 4 == 0) ? (data[n/4] + data[n/4 + 1]) / 2 : data[int(n/4) + 1]; 
+                q3 = (n % 4 == 0) ? (data[3*n/4] + data[3*n/4 + 1]) / 2 : data[int(3*n/4) + 1]; 
+                mean = total / n;
+                print "first_quartile\tmedian\tmean\tthird_quartile\tcount_above_point_six";
+                print q1 "\t" median "\t" mean "\t" q3 "\t" count_above_point_six;
+            }' $WORKDIR/$FILE > $OUTDIR/${FILE}_det_stats
+
+

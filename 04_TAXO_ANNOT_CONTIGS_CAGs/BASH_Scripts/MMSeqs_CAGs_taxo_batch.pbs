@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=80G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=24
+#PBS -j oe
+#PBS -J 1-223
+
+# How to configure job resources ?
+# cf https://w3z.ifremer.fr/bioinfo/Cmdline-Datarmor/Tutoriels/Lancer-un-calcul-bioinfo
+
+########################################
+##      Manage script history         ##
+########################################
+# DO NOT MODIFY
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="MMSeqDBCreation"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+LOG2="MMSeqsTaxoAnnot"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+LOG3="MMSeqsTSVFormat"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+
+########################################
+##      Load environment              ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/mmseqs2/11.e1a1c/env.sh
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST/CAG_ATT_FirstRound_Splits
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST/00_LOGS
+
+cd $WORKDIR
+CAG=$(awk "NR==${PBS_ARRAY_INDEX}" list_firstround_splits)
+
+mkdir -p ${WORKDIR}/${CAG}_scratch
+
+mmseqs createdb ${CAG} mmseqsDB_${CAG} >> $LOGDIR/$LOG1 2>&1
+
+mmseqs taxonomy mmseqsDB_${CAG} /home/datawork-lmee-intranet-nos/tools/UniRef90_mmseqs Taxonomy_Uniref90_${CAG} ${CAG}_scratch --tax-lineage 1 --threads 24 --split-memory-limit 40G >> $LOGDIR/$LOG2 2>&1
+
+mmseqs createtsv mmseqsDB_${CAG} Taxonomy_Uniref90_${CAG} Taxonomy_Uniref90_${CAG}.tsv >> $LOGDIR/$LOG3 2>&1
+

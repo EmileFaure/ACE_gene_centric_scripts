@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=1G
+#PBS -l walltime=1:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="Concat_RF_Permut"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/Threshold_Max60_rf_outputs/Permutations_RF
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+head -n1 random_forests_AGC_TMAX60GQ_NZVuniquecut20_FreeLiving_Permuted1994_1.txt > RF_AGC_TMAX60GQ_NZVuniquecut20_FL_Permuted1994_All.txt
+
+tail -n +2 -q random_forests_AGC_TMAX60GQ_NZVuniquecut20_FreeLiving_Permuted1994_*.txt >> RF_AGC_TMAX60GQ_NZVuniquecut20_FL_Permuted1994_All.txt
+
+head -n1 random_forests_AGC_TMAX60GQ_NZVuniquecut20_FreeLiving_Permuted1997_1.txt > RF_AGC_TMAX60GQ_NZVuniquecut20_FL_Permuted1997_All.txt
+
+tail -n +2 -q random_forests_AGC_TMAX60GQ_NZVuniquecut20_FreeLiving_Permuted1997_*.txt >> RF_AGC_TMAX60GQ_NZVuniquecut20_FL_Permuted1997_All.txt

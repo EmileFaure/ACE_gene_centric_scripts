@@ -1,0 +1,37 @@
+library(tidyverse) 
+library(data.table)
+
+#CAG29
+Gene_Mat=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/GM_AGN_T60MAXGQ_transposed_NZVuniquecut20_FL_RSquared10.rds")
+AGC_list=fread("/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/CAG_29_FLRsquared10_Mertzbloom.txt",data.table=F,header=F)
+
+# Select only AGC from the CAG
+Gene_Mat <- Gene_Mat[,which(names(Gene_Mat) %in% AGC_list[,2])]
+
+fwrite(Gene_Mat, file= "/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/GM_AGN_T60MAXGQ_transposed_CAG29FL.tsv",quote=FALSE,sep="\t",row.names=T)
+
+#CAG79
+Gene_Mat=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/GM_AGN_T60MAXGQ_transposed_NZVuniquecut20_FL_RSquared10.rds")
+AGC_list=fread("/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/CAG_79_FLRsquared10_Mertzbloom.txt",data.table=F,header=F)
+
+# Select only AGC from the CAG
+Gene_Mat <- Gene_Mat[,which(names(Gene_Mat) %in% AGC_list[,2])]
+fwrite(Gene_Mat, file= "/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/GM_AGN_T60MAXGQ_transposed_CAG79FL.tsv",quote=FALSE,sep="\t", row.names=T)
+
+#CAG15
+Gene_Mat=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/GM_AGN_T60MAXGQ_transposed_NZVuniquecut20_ATT_RSquared15.rds")
+AGC_list=fread("/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/CAG_15_ATTRsquared15_Mertzbloom.txt",data.table=F,header=F)
+
+# Select only AGC from the CAG
+Gene_Mat <- Gene_Mat[,which(names(Gene_Mat) %in% AGC_list[,2])]
+fwrite(Gene_Mat, file= "/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/GM_AGN_T60MAXGQ_transposed_CAG15ATT.tsv",quote=FALSE,sep="\t", row.names=T)
+
+#CAG50
+Gene_Mat=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/GM_AGN_T60MAXGQ_transposed_NZVuniquecut20_ATT_RSquared15.rds")
+AGC_list=fread("/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/CAG_50_ATTRsquared15_Mertzbloom.txt",data.table=F,header=F)
+
+# Select only AGC from the CAG
+Gene_Mat <- Gene_Mat[,which(names(Gene_Mat) %in% AGC_list[,2])]
+fwrite(Gene_Mat, file= "/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/GM_AGN_T60MAXGQ_transposed_CAG50ATT.tsv",quote=FALSE,sep="\t", row.names=T)
+
+

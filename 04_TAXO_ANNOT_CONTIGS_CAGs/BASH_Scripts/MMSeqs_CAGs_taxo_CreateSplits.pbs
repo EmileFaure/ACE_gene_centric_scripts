@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=10G
+#PBS -l walltime=2:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -j oe
+#PBS -J 1-16
+
+# How to configure job resources ?
+# cf https://w3z.ifremer.fr/bioinfo/Cmdline-Datarmor/Tutoriels/Lancer-un-calcul-bioinfo
+
+########################################
+##      Manage script history         ##
+########################################
+# DO NOT MODIFY
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="MMSeqDBCreation"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+LOG2="MMSeqsTaxoAnnot"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+LOG3="MMSeqsTSVFormat"_"${PBS_ARRAY_INDEX}"_"$TIMESTAMP"".log"
+
+########################################
+##      Load environment              ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/mmseqs2/11.e1a1c/env.sh
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST
+CAGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST
+CONTIGSDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/02_REF_FASTA/all
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST/00_LOGS
+
+cd $CAGDIR
+CAG=$(awk "NR==${PBS_ARRAY_INDEX}" 01_scripts/ListAttachedCAGs0fInterest_FirstRoundATT)
+CAGNAME=CAG_${CAG}ATT
+LISTNAME=list_contigs_CAG_${CAG}ATT.tsv
+
+#mkdir ${WORKDIR}/CAG_ATT_FirstRound_Splits
+#mkdir ${WORKDIR}/${CAGNAME}_scratch
+
+#Remove duplicated contigs, and match formatting with fasta of contigs
+#sort $LISTNAME | uniq | awk 'BEGIN{FS=OFS="_"}{print ">"$2,$3}' > ${WORKDIR}/tmp_${CAGNAME}
+#Add fasta sequences
+cd ${WORKDIR}
+#grep -Fwf tmp_${CAGNAME} ${CONTIGSDIR}/all_fasta_concatenated_G_single_smaller.fa -A 1 | sed '/^--/d' > ${CAGNAME}_Contigs.fa
+
+split -l 50000 -a 3 -d ${CAGNAME}_Contigs.fa ${CAGNAME}_Contigs.split_
+mv ${CAGNAME}_Contigs.split_* CAG_ATT_FirstRound_Splits/
+

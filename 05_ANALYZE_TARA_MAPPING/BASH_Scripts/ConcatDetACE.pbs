@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="QC-TARA"_"$TIMESTAMP"_"$PBS_ARRAY_INDEX"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+
+########################################
+##          Execute script            ##
+########################################
+
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/ACE_metrics
+
+cd $WORKDIR
+
+# Create the header of the output file
+echo -e "Sample\tDetectionAbove60" > Detection_table_ACE.tsv
+
+# Loop through each file
+for file in *_profile_blitz.txt_det_above60; do
+    # Extract sample name from the file name
+    sample_name=$(echo "$file" | cut -d'_' -f1,2)
+    
+    # Extract quartile values
+    quartile_values=$(awk 'NR==2 ' "$file")
+    
+    # Output sample name and quartile values to the output file
+    printf "%s\t%s\n" "$sample_name" "$quartile_values" >> Detection_table_ACE.tsv
+done

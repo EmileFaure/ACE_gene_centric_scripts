@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="ExtractFasta"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/seqkit/2.8.1/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/GENE_CALL/EXPORT_GNAME_SMALLERHEADERS
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+
+cd $WORKDIR
+
+seqkit grep -n -f $OUTDIR/Tara_Mapping_metrics/Polar_genes.txt all-GNAME-SMALLERHEADERS-gene-calls-renamed_ID-seqnuc.fa -o $OUTDIR/Polar_Genes.fa >& $LOGDIR/$LOG 2>&1
+
+gzip $OUTDIR/Polar_Genes.fa
+
+

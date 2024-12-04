@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=15G
+#PBS -l walltime=60:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##      Manage script history         ##
+########################################
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="RConcat_bash"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES
+FILES=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/06_PROFILE_BLITZ/*_profile_blitz.txt
+cd $WORKDIR
+
+awk '{print "ACE_"$2"_"$1}' ../06_PROFILE_BLITZ/sample_1_SORTED_profile_blitz.txt > RAW_GENE_MAT_COV.tsv
+#sed -i "s/ACE_contig_gene_callers_id/GENE_ID/" RAW_GENE_MAT_COV.tsv
+echo "GENE_ID" > HEADER.tsv
+
+cp RAW_GENE_MAT_COV.tsv RAW_GENE_MAT_DET.tsv
+
+for f in $FILES
+do
+paste RAW_GENE_MAT_COV.tsv <(cut -f 6 "$f") > tmp
+mv tmp RAW_GENE_MAT_COV.tsv
+#sed -i "s/mean_cov/$f/" RAW_GENE_MAT_COV.tsv
+paste RAW_GENE_MAT_DET.tsv <(cut -f 5 "$f") > tmp2
+mv tmp2 RAW_GENE_MAT_DET.tsv
+#sed -i "s/detection/$f/" RAW_GENE_MAT_DET.tsv
+echo $(basename $f) >> HEADER.tsv
+done
+
+sed -i 's/_profile_blitz.txt//g' HEADER.tsv
+tr "\n" "\t" < HEADER.tsv > HEADER_LINE.tsv
+(cat HEADER_LINE.tsv;echo; tail -n +2 RAW_GENE_MAT_COV.tsv)>tmp
+mv tmp RAW_GENE_MAT_COV.tsv
+(cat HEADER_LINE.tsv;echo; tail -n +2 RAW_GENE_MAT_DET.tsv)>tmp
+mv tmp RAW_GENE_MAT_DET.tsv
+rm HEADER.tsv HEADER_LINE.tsv
+

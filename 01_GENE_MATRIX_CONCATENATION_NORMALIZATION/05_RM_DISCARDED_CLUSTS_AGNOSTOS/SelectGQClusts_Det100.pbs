@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=500G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+# How to configure job resources ?
+# cf https://w3z.ifremer.fr/bioinfo/Cmdline-Datarmor/Tutoriels/Lancer-un-calcul-bioinfo
+
+########################################
+##      Manage script history         ##
+########################################
+# DO NOT MODIFY
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="DetecThreshold"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+# ADAPT to your tool
+
+#. /appli/bioinfo/R/4.1.1/env.sh
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/00_REF_LOGS
+cd $WORKDIR
+
+awk 'NR==FNR{a[$0];next}!($1 in a)' AGNOSTOS_DISC_clusts.txt AGNOSTOS_CLSTRLVL_GENE_MAT_COV_DETECTHRESH_100percent.tsv > AGNOSTOS_GQ_CLSTRLVL_GENE_MAT_COV_DETECTHRESH_100percent.tsv
+
+
+

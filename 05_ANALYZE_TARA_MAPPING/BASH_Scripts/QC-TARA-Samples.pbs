@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=10:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="QC-TARA-FailedSamples"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+. /appli/bioinfo/illumina-utils/2.3/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/DNA_BANK/MetaG/TARA
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/10-COMPARE-GENE-TARA/00-LOGS
+
+cd $WORKDIR/LIST_SAMPLES_MAPPING_ACE
+
+iu-gen-configs failed_sample.txt >& $LOGDIR/$LOG 2>&1
+
+iu-filter-quality-minoche AO_175_ZZZ.ini --ignore-deflines
+

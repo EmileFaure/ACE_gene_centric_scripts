@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=700G
+#PBS -l walltime=20:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##      Manage script history         ##
+########################################
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="RConcat_bash"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES
+
+cd $WORKDIR
+
+#awk -F'\t' 'BEGIN{print "GENE_ID\tCLUSTER_REFSEQ"}{print $2"\t"$4}' /home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/GENE_CALL/DEREP/all-GNAME-SMALLERHEADERS-gene-calls-renamed_ID-seqnuc_95_90_TABREF.tsv > dict_clust_cdhit.tsv
+
+#awk -F'\t' 'FNR==NR {a[$1]=$2; next} {print a[$1]"\t"$0}' dict_clust_cdhit.tsv RAW_GENE_MAT_COV.tsv > CDHit_GENE_MAT_COV.tsv 
+
+awk -F'\t' 'FNR==NR {a[$1]=$2; next} {print a[$1]"\t"$0}' dict_clust_cdhit.tsv RAW_GENE_MAT_DET.tsv > CDHit_GENE_MAT_DET.tsv
+
+#cut -d $'\t' -f1,3- CDHit_GENE_MAT_COV.tsv > tmp
+#mv tmp CDHit_GENE_MAT_COV.tsv
+
+cut -d $'\t' -f1,3- CDHit_GENE_MAT_DET.tsv > tmp
+mv tmp CDHit_GENE_MAT_DET.tsv
+
+

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=15G
+#PBS -l walltime=20:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##      Manage script history         ##
+########################################
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="RConcat_bash"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES
+FILES=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES/*_COV.tsv_col_*
+cd $WORKDIR
+
+#initiate first column with IDs
+cut -f1 AGNOSTOS_GENE_MAT_COV.tsv_col_2 > AGNOSTOS_CLSTRLVL_GENE_MAT_COV.tsv
+
+#Add columns one by one
+for f in $FILES
+do
+paste AGNOSTOS_CLSTRLVL_GENE_MAT_COV.tsv <(cut -f2 "$f") > tmp
+mv tmp AGNOSTOS_CLSTRLVL_GENE_MAT_COV.tsv
+done
+
+rm *_COV.tsv_col_*

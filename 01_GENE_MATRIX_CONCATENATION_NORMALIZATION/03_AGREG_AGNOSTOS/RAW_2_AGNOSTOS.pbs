@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=1000G
+#PBS -l walltime=20:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##      Manage script history         ##
+########################################
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG1="RConcat_bash"_"$TIMESTAMP"".alone.log"
+
+########################################
+##      Load environment              ##
+########################################
+
+########################################
+##      Execute script                ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES
+
+cd $WORKDIR
+
+awk -F'\t' 'BEGIN{print "GENE_ID\tAGC_ID"}{print $2"\t"$1}' /home/datawork-lmee-intranet-nos/ACE/04-GENE-CENTRIC/03-ANNOTATION/ACE_gene_cluster_files/cluster_genes.tsv > dict_clust_agnostos.tsv
+
+#Gene names from AGNOSTOS results are longer than those of profile blitz, so we need to remove 0s
+#The gene ACE_G100_1_0 is changed to ACE_G100_1_ by a simple sed 's/_0*/_/g', we take that into account:
+sed -e 's/_0\t/_genecaller0\t/g' dict_clust_agnostos.tsv | sed 's/_0*/_/g' | sed 's/genecaller//g' > tmp
+mv tmp dict_clust_agnostos.tsv
+
+awk -F'\t' 'FNR==NR {a[$1]=$2; next} {print a[$1]"\t"$0}' dict_clust_agnostos.tsv RAW_GENE_MAT_COV.tsv > AGNOSTOS_GENE_MAT_COV.tsv 
+
+awk -F'\t' 'FNR==NR {a[$1]=$2; next} {print a[$1]"\t"$0}' dict_clust_agnostos.tsv RAW_GENE_MAT_DET.tsv > AGNOSTOS_GENE_MAT_DET.tsv
+
+cut -d $'\t' -f1,3- AGNOSTOS_GENE_MAT_COV.tsv > tmp
+mv tmp AGNOSTOS_GENE_MAT_COV.tsv
+
+cut -d $'\t' -f1,3- AGNOSTOS_GENE_MAT_DET.tsv > tmp
+mv tmp AGNOSTOS_GENE_MAT_DET.tsv
+
+

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=01:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="RetrieveCagsAnnot"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/02-SINGLE-ASSEMBLY/AUTOMATIC_MAG_COLLECTION/NOT_DEREP/
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/00_logs
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/
+cd $WORKDIR
+
+# List of contigs and MAGs is available : list_contigs_MAG_HQ_MQ.tsv but names of contigs differ from the ones in gene names
+sed -e 's/_0\t/_genecaller0\t/g' list_contigs_MAG_HQ_MQ.tsv | sed -e 's/_0_sub/_genecaller0_sub/g' | sed 's/_0*/_/g' | sed 's/genecaller//g' > $OUTDIR/list_contigs_MAG_HQ_MQ.tsv
+
+cd $OUTDIR
+awk -F'\t' 'BEGIN{OFS="\t"}{print "ACE_"$2"_",$1}' list_contigs_MAG_HQ_MQ.tsv > tmp
+mv tmp list_contigs_MAG_HQ_MQ.tsv
+
+# Now we need to add the representative MAG post derep for each contig
+awk -F'\t' 'BEGIN{OFS="\t"}{print $3,$4}' /home/datawork-lmee-intranet-nos/ACE/02-SINGLE-ASSEMBLY/AUTOMATIC_MAG_COLLECTION/DEREP-MAGS/FAST_DEREP_ANVI/CLUSTER_REPORT.txt | awk -F '[\t,]' '{for (i=2;i<=NF;i++) print $1"\t"$i}' > dict_representative_MAGs_DEREP.tsv
+
+awk 'BEGIN{FS=OFS="\t"} NR==FNR {h[$2]=$1;next}{print $0,h[$2]}' dict_representative_MAGs_DEREP.tsv list_contigs_MAG_HQ_MQ.tsv > list_contigs_MAG_HQ_MQ_DerepRepresentative.tsv
+
+# Add the taxonomy (here using taxonommy estimated on non dereplicated mags for maximum precision)
+cp /home/datawork-lmee-intranet-nos/ACE/02-SINGLE-ASSEMBLY/AUTOMATIC_MAG_COLLECTION/NOT_DEREP/cpr-and-classic-gtdbtk-v2.1.0/taxonomy_MAG_bac_and_arch_all_only_classic_markers_for_qc_checkm1.tsv dict_MAG_Taxo.tsv
+
+awk 'BEGIN{FS=OFS="\t"} NR==FNR {h[$1]=$2;next}{print $0,h[$2]}' dict_MAG_Taxo.tsv list_contigs_MAG_HQ_MQ_DerepRepresentative.tsv > list_contigs_MAG_HQ_MQ_TAXO.tsv
+
+# Selecting for specific CAGs
+  #CAG 29 FL
+awk 'BEGIN{OFS=FS="_"}{print $1,$2,$3"_"}' Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-29FL.tsv > list_contigs_CAG29.tsv
+
+grep -Fwf list_contigs_CAG29.tsv list_contigs_MAG_HQ_MQ_TAXO.tsv > Taxo_MAGs_CAG29.tsv
+
+sed 's/__;/__NA;/g' Taxo_MAGs_CAG29.tsv | sed 's/s__$/s__NA/g' | sed 's/;/\t/g' > tmp
+mv tmp Taxo_MAGs_CAG29.tsv
+
+  #CAG 79 FL
+awk 'BEGIN{OFS=FS="_"}{print $1,$2,$3"_"}' Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-79FL.tsv > list_contigs_CAG79.tsv
+
+grep -Fwf list_contigs_CAG79.tsv list_contigs_MAG_HQ_MQ_TAXO.tsv > Taxo_MAGs_CAG79.tsv
+
+sed 's/__;/__NA;/g' Taxo_MAGs_CAG79.tsv | sed 's/s__$/s__NA/g' | sed 's/;/\t/g' > tmp
+mv tmp Taxo_MAGs_CAG79.tsv
+
+  #CAG 15 ATT
+awk 'BEGIN{OFS=FS="_"}{print $1,$2,$3"_"}' Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-15ATT.tsv > list_contigs_CAG15.tsv
+
+grep -Fwf list_contigs_CAG15.tsv list_contigs_MAG_HQ_MQ_TAXO.tsv > Taxo_MAGs_CAG15.tsv
+
+sed 's/__;/__NA;/g' Taxo_MAGs_CAG15.tsv | sed 's/s__$/s__NA/g' | sed 's/;/\t/g' > tmp
+mv tmp Taxo_MAGs_CAG15.tsv
+
+  #CAG 50 ATT
+awk 'BEGIN{OFS=FS="_"}{print $1,$2,$3"_"}' Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG-50ATT.tsv > list_contigs_CAG50.tsv
+
+grep -Fwf list_contigs_CAG50.tsv list_contigs_MAG_HQ_MQ_TAXO.tsv > Taxo_MAGs_CAG50.tsv
+
+sed 's/__;/__NA;/g' Taxo_MAGs_CAG50.tsv | sed 's/s__$/s__NA/g' | sed 's/;/\t/g' > tmp
+mv tmp Taxo_MAGs_CAG50.tsv
+
+
+

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=200G
+#PBS -l walltime=20:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="ExtractAGCLevelAnnotations"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+. /appli/bioinfo/R/4.2.1/env.sh
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/01_scripts
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/00_logs
+cd $WORKDIR
+
+Rscript ExtractAGCLevelAnnotations.R >& $LOGDIR/$LOG 2>&1
+

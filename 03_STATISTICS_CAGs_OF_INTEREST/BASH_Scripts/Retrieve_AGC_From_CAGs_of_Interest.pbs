@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=20G
+#PBS -l walltime=10:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="RetrieveCagsAnnot"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT
+OUTDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST/00_logs
+cd $WORKDIR
+
+# FREE LIVING (R2 >10%)
+
+  # CAG 29 (Mertz Bloom)
+
+grep -w CAG_29 CAGs_T60MAX_FL_RSquared10.txt > $OUTDIR/CAG_29_FLRsquared10_Mertzbloom.txt
+
+  # CAG 79 (Mertz Bloom)
+
+grep -w CAG_79 CAGs_T60MAX_FL_RSquared10.txt > $OUTDIR/CAG_79_FLRsquared10_Mertzbloom.txt
+
+
+# ATTACHED (R2 > 15%)
+
+  # CAG 15 (Mertz Bloom)
+
+grep -w CAG_15 CAGs_T60MAX_ATT_RSquared15.txt > $OUTDIR/CAG_15_ATTRsquared15_Mertzbloom.txt
+
+  # CAG 50 (Mertz Bloom)
+
+grep -w CAG_50 CAGs_T60MAX_ATT_RSquared15.txt > $OUTDIR/CAG_50_ATTRsquared15_Mertzbloom.txt
+
+
+
+
+
+

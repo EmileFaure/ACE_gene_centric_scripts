@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#PBS -q sequentiel
+#PBS -l mem=6G
+#PBS -l walltime=24:00:00
+#PBS -W umask=002
+#PBS -l ncpus=1
+#PBS -j oe
+
+########################################
+##      Execute script                ##
+########################################
+
+CAGDIR=/home/datawork-lmee-intranet-nos/ACE/07-STATS-CAGs-OF-INTEREST
+TAXODIR=/home/datawork-lmee-intranet-nos/ACE/08-TAXO-CAGs-OF-INTEREST
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/12-GRADIENT-EXPLO
+
+# CAG 22
+grep ";Candidatus Pelagibacter;" ${TAXODIR}/Results_Taxo_Uniref90_22FL.tsv > ${WORKDIR}/Contigs_SAR11_CAG22.taxo
+awk -F"\t" '{print "ACE_"$1"_"}' ${WORKDIR}/Contigs_SAR11_CAG22.taxo > ${WORKDIR}/Contigs_SAR11_CAG22.ID
+grep -Ff ${WORKDIR}/Contigs_SAR11_CAG22.ID ${CAGDIR}/Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_22FL.tsv > ${WORKDIR}/Contigs_SAR11_CAG22.Annot
+
+# CAG 35
+grep ";Candidatus Pelagibacter;" ${TAXODIR}/Results_Taxo_Uniref90_35FL.tsv > ${WORKDIR}/Contigs_SAR11_CAG35.taxo
+awk -F"\t" '{print "ACE_"$1"_"}' ${WORKDIR}/Contigs_SAR11_CAG35.taxo > ${WORKDIR}/Contigs_SAR11_CAG35.ID
+grep -Ff ${WORKDIR}/Contigs_SAR11_CAG35.ID ${CAGDIR}/Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_35FL.tsv > ${WORKDIR}/Contigs_SAR11_CAG35.Annot
+
+# CAG 83
+grep ";Candidatus Pelagibacter;" ${TAXODIR}/Results_Taxo_Uniref90_83FL.tsv > ${WORKDIR}/Contigs_SAR11_CAG83.taxo
+awk -F"\t" '{print "ACE_"$1"_"}' ${WORKDIR}/Contigs_SAR11_CAG83.taxo > ${WORKDIR}/Contigs_SAR11_CAG83.ID
+grep -Ff ${WORKDIR}/Contigs_SAR11_CAG83.ID ${CAGDIR}/Annotation_Table_AGN_CDH_Tax_KEGG_EGG_CAG_83FL.tsv > ${WORKDIR}/Contigs_SAR11_CAG83.Annot
+
+cd ${WORKDIR}
+awk 'BEGIN{FS=OFS="\t"}{print $2,$17}' Contigs_SAR11_CAG83.Annot | sort | uniq | awk 'BEGIN{FS=OFS="\t"}{print $2}' | sort | uniq -c | sed -r 's/ +([0-9]+) /\1\t/'  > AGCCount_per_EggNOG_CAG83.tsv
+awk 'BEGIN{FS=OFS="\t"}{print $2,$17}' Contigs_SAR11_CAG35.Annot | sort | uniq | awk 'BEGIN{FS=OFS="\t"}{print $2}' | sort | uniq -c | sed -r 's/ +([0-9]+) /\1\t/'  > AGCCount_per_EggNOG_CAG35.tsv
+awk 'BEGIN{FS=OFS="\t"}{print $2,$17}' Contigs_SAR11_CAG22.Annot | sort | uniq | awk 'BEGIN{FS=OFS="\t"}{print $2}' | sort | uniq -c | sed -r 's/ +([0-9]+) /\1\t/'  > AGCCount_per_EggNOG_CAG22.tsv
+
+awk 'BEGIN{FS=OFS="\t"}{print $2,$9}' Contigs_SAR11_CAG83.Annot | sort | uniq | awk 'BEGIN{FS=OFS="\t"}{print $2}' | sort | uniq -c | sed -r 's/ +([0-9]+) /\1\t/'  > AGCCount_per_KEGG_CAG83.tsv
+awk 'BEGIN{FS=OFS="\t"}{print $2,$9}' Contigs_SAR11_CAG35.Annot | sort | uniq | awk 'BEGIN{FS=OFS="\t"}{print $2}' | sort | uniq -c | sed -r 's/ +([0-9]+) /\1\t/'  > AGCCount_per_KEGG_CAG35.tsv
+awk 'BEGIN{FS=OFS="\t"}{print $2,$9}' Contigs_SAR11_CAG22.Annot | sort | uniq | awk 'BEGIN{FS=OFS="\t"}{print $2}' | sort | uniq -c | sed -r 's/ +([0-9]+) /\1\t/'  > AGCCount_per_KEGG_CAG22.tsv
+

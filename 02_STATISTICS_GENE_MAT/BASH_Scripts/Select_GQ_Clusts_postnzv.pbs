@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+#PBS -q omp
+#PBS -l mem=20G
+#PBS -l walltime=1:00:00
+#PBS -W umask=002
+#PBS -l ncpus=2
+
+########################################
+##        Manage script history       ##
+########################################
+
+TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
+LOG="Select_GQ_Clusts_postNZV"_"$TIMESTAMP"".log"
+
+########################################
+##          Load environment          ##
+########################################
+# ADAPT to your tool
+
+########################################
+##          Execute script            ##
+########################################
+
+WORKDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT
+LOGDIR=/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/00-LOGS
+cd $WORKDIR
+
+#head -n1 GM_AGN_T30GQ_transposed_NZVuniquecut20_Attached.tsv | sed 's/\t/\n/g' > AGC_Clusts_NZVuniquecut20_Attached.txt
+
+#head -n1 GM_AGN_T30GQ_transposed_NZVuniquecut20_FreeLiving.tsv | sed 's/\t/\n/g' > AGC_Clusts_NZVuniquecut20_FreeLiving.txt
+
+#awk '{print "AGC_"$0}' /home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/07_GENE_MATRICES/AGNOSTOS_GQ_clusts.txt > AGNOSTOS_GQ_clusts.txt 
+
+#grep -F -w -f AGC_Clusts_NZVuniquecut20_FreeLiving.txt AGNOSTOS_GQ_clusts.txt > AGNOSTOS_GQ_clusts_NZVuniquecut20_FreeLiving.txt
+
+grep -F -w -f AGC_Clusts_NZVuniquecut20_Attached.txt AGNOSTOS_GQ_clusts.txt > AGNOSTOS_GQ_clusts_NZVuniquecut20_Attached.txt
