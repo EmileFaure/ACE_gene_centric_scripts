@@ -1,0 +1,1175 @@
+---
+title: "02-ACE CTD Metadata"
+author: "Lisa-Marie Delpech"
+date: "1/26/2022"
+output:
+  github_document:
+    toc: yes
+  html_document:
+    toc: yes
+    number_sections: yes
+    highlight: pygments
+    code_folding: "show"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Load packages and data
+
+```{r R setup}
+set.seed(3)
+```
+
+
+```{r Packages, message = FALSE}
+require(tidyverse)
+require(vegan)
+require(viridis)
+require(ggsci)
+require(ggrepel)
+require(rcompanion)
+require(caret)
+require(VIM)
+require(naniar)
+require(mice)
+require(missForest)
+require(FactoMineR)
+require(Amelia)
+require(RANN)
+require(cowplot)
+require(lubridate)
+require(ggdendro)
+require(factoextra)
+require(ggOceanMaps)
+require(ggOceanMapsData)
+```
+
+```{r Sources}
+source("./R_Functions/ggPCA.R")
+source("./R_Functions/ggRDA.R")
+```
+
+
+```{r Read data}
+meta <- read.table(file = "./Metadata/meta_CTD_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = FALSE) # fileEncoding="CP1252"
+str(meta)
+
+meta.udw <- read.table(file = "./Metadata/meta_UDW_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = TRUE) # fileEncoding="CP1252"
+str(meta.udw) 
+
+metagenomes <- read.table("./Metadata/ACEsamples_With_Ace_seq_name.tsv", header = TRUE) # File listing samples with metagenomes
+```
+
+
+# Format data
+
+The aim here is to have a matrix that can be roughly investigated through a PCA so as to have a better overview of the station characteristics and how they cluster.
+This requires getting rid of some columns (especially the sequencing variables, that vary according to filter), and to pool samples by event number and depth, regardless of the filter. 
+
+```{r Format factors}
+meta <- meta %>% 
+  mutate(MertzGlacier.new = case_when(MertzGlacier == "FAUX" ~ "FALSE",
+                                      TRUE ~ MertzGlacier)) %>%
+  mutate(MertzGlacier = as.factor(MertzGlacier.new)) %>% 
+  select(-MertzGlacier.new)
+
+meta <- meta %>% 
+  mutate_if(.predicate = is.character, .funs = as.factor)
+```
+
+```{r Subset metadata}
+# samples_id <- meta %>%
+#   select(c("Event_number","CTD_cast_number","ACE_station_number","TM_station_number","ACE_seq_name","Latitude","Longitude"))
+
+meta.filtered <- meta %>% 
+  select(-c("CTD_cast_number","TM_station_number","DNA_vol_µl","DNA_Conc_ng.µl","DNA_qty_ng","RNA_vol_µl","RNA_Conc_ng.µl","RNA_qty_ng","Event_start_date","Event_end_date"))
+
+meta.filtered.phys <- meta.filtered
+
+meta.filtered <- meta.filtered %>% select(-c(contains("Glorys"))) # Leave out physical and dynamical properties for now
+glimpse(meta.filtered)
+```
+
+Here we group by event number and depth, hence the size fractions (which affect the biology) will be pooled, as the physics and chemistry are the same regardless of the filter. To create a metadata file that matches metagenome samples, we will need to include the size fraction column. 
+
+```{r Group metadata}
+meta.sum <- meta.filtered %>%
+  group_by(Event_number,Depth_m,Depth_q,Longhurst_Prov,MertzGlacier,Water_mass) %>% 
+  summarise_if(.predicate = is.numeric, .funs = mean)
+
+meta.sum <- meta.sum %>% 
+  mutate(Sample_name=paste(Event_number,Depth_m, sep = "_")) %>% 
+  column_to_rownames(var = "Sample_name")
+
+head(meta.sum)
+dim(meta.sum)
+```
+
+```{r Subset grouping variables}
+meta.group <- meta.sum %>% 
+  select(c("Event_number","Depth_m","Depth_q","Longhurst_Prov","MertzGlacier","Water_mass")) # Store grouping variables
+
+meta.sum <- meta.sum %>%
+  select(-c("Event_number","ACE_station_number","Depth_q","Longhurst_Prov","MertzGlacier","Water_mass")) # Remove grouping variables
+```
+
+
+```{r Physical metadata}
+meta.phys <- meta.filtered.phys %>%
+  group_by(Event_number,Depth_m,Depth_q,Longhurst_Prov,MertzGlacier,Water_mass) %>% 
+  summarise_if(.predicate = is.numeric, .funs = mean, na.rm = TRUE) %>% 
+  mutate(Sample_name=paste(Event_number,Depth_m, sep = "_")) %>% 
+  column_to_rownames(var = "Sample_name")
+
+dim(meta.phys)
+
+meta.phys <- meta.phys %>% 
+  select(-c("Event_number","ACE_station_number","Depth_q","Longhurst_Prov","MertzGlacier","Water_mass"))
+```
+
+
+```{r Save grouped metadata, eval = FALSE}
+saveRDS(meta.sum, file = "./R_Data/metadata_grouped.rds")
+```
+
+# Grouping variables
+
+## Qualitative depth
+
+Modify the depth qualitative variables to another variable that discriminates the `ZZZ` depth better. 
+
+```{r Format quantitative depth}
+meta.group <- meta.group %>% 
+  mutate(Depth_q_new = as.factor(case_when(Depth_m <= 15 ~ "SRF",
+                                           Depth_m == 150 ~ "150m",
+                                           Depth_m == 1000 ~ "1000m",
+                                           Depth_m >= 3460 ~ "Deep",
+                                           Depth_q == "DCM" ~ "DCM",
+                                           TRUE & Depth_m < 150 ~ "ZZZ < 150",
+                                           TRUE & Depth_m > 150 ~ "ZZZ > 150")))
+
+meta.group$Depth_q_new <- factor(meta.group$Depth_q_new, c("SRF","DCM","ZZZ < 150","150m", "ZZZ > 150", "1000m","Deep"))
+
+table(meta.group$Depth_q_new)
+table(meta.group$Depth_q)
+```
+
+## Format water mass
+
+```{r Format water mass}
+meta.group <- meta.group %>% 
+  mutate(Water_mass =
+           factor(Water_mass,
+                  levels = c("AASW",
+                             "SASW",
+                             "STSW",
+                             "AASW-WW",
+                             "WW",
+                             "AASW-AAIW",
+                             "SASW-AAIW",
+                             "STSW-AAIW",
+                             "AAIW-UCDW",
+                             "WW-CDW",
+                             "CDW",
+                             "LCDW-AABW",
+                             "AABW",
+                             "DSW"))) %>% 
+  mutate(Water_mass_simplified =
+           case_when(Water_mass %in% c("AASW-WW","WW") ~ "WW influenced",
+                     Water_mass %in% c("AASW-AAIW","SASW-AAIW","STSW-AAIW") ~ "SW-AAIW",
+                     Water_mass %in% c("AAIW-UCDW","WW-CDW","CDW","LCDW-AABW") ~ "CDW influenced",
+                     Water_mass == "SASW" ~ "SASW",
+                     Water_mass == "STSW" ~ "STSW",
+                     Water_mass == "AASW" ~ "AASW",
+                     Water_mass == "DSW" ~ "DSW",
+                     Water_mass == "AABW" ~ "AABW")) %>%
+  mutate(Water_mass_simplified = factor(Water_mass_simplified, levels = c("AASW","SASW", "STSW","WW influenced","SW-AAIW","CDW influenced","DSW","AABW")))
+
+head(meta.group)
+```
+
+Because it is a qualitative variable with many levels, we will need to create a palette for water masses. 
+
+```{r Create palette for water masses}
+scales::show_col(colorRampPalette(pal_npg()(10))(14))
+wm.pal <- c("#2FB0B7","#7C98A3","#E64B35","#049A87","#2E6587","#907483","#8BB3BB","#E19987","#9592AB","#A2A095","#D6100E","#A23B2C","#8D735A","#B09C85")
+scales::show_col(wm.pal) # For all water masses
+
+wm.pal.sim <- pal_npg()(8)[c(2,3,1,4:8)]
+scales::show_col(wm.pal.sim)
+
+meta.group <- meta.group %>% 
+  mutate(Water_mass.col = Water_mass,
+         Water_mass_simplified.col = Water_mass_simplified)
+levels(meta.group$Water_mass.col) <- wm.pal
+levels(meta.group$Water_mass_simplified.col) <- wm.pal.sim
+```
+
+
+```{r Save grouping variables, eval = FALSE}
+saveRDS(meta.group, file = "./R_Data/metadata_grouping_variables.rds")
+```
+
+# Missing values
+
+## Explore missing values
+
+```{r Explore NA}
+dim(na.omit(meta.sum)) # A lot of lines are not complete
+gg_miss_var(meta.sum)
+meta.sum %>% miss_var_summary()
+vis_miss(meta.sum, sort_miss = TRUE)
+
+res <- summary(aggr(meta.sum, sortVar = TRUE, cex.axis = .4))$combinations
+head(res[rev(order(res[,2])),])
+```
+
+Biological variables are often missing simultaneously. 
+dCd, dFe, dZn, dCu, dNi are usually missing together. Fe_Ligands, log_Kcond_FeL, TPZT, Humics include a lot of missing values
+
+
+```{r Multiple Correspondance Analysis}
+meta.sum.cat <- apply(meta.sum, FUN=function(x){if(is.na(x)) "m" else "o"}, MARGIN = c(1,2))
+
+res.mca <- MCA(meta.sum.cat, graph = F)
+plot(res.mca, invis = "ind", title = "MCA graph of the categories", cex = 0.5)
+```
+
+## Imputation
+
+Preprocess the matrix by removing variables that have over 50% NA, since it would not really make sense to impute more than half the values. 
+
+```{r Preprocess}
+var <- meta.sum %>%
+  miss_var_summary() %>%
+  filter(pct_miss < 50) %>%
+  pull(variable) # Variables with less than 50% NA
+
+meta.sum.preprocess <- meta.sum[,var] # %NA < 50%
+meta.sum.preprocess %>% miss_var_summary() # All variables have below 43% NA
+```
+
+
+```{r BagImpute}
+set.seed(3)
+meta.sum.bag <- preProcess(meta.sum.preprocess, method = c("bagImpute")) # Centered and scaled later on
+meta.sum.bagImp <- predict(meta.sum.bag, meta.sum.preprocess)
+```
+
+Relevant post regarding how to compare the raw matrix and matrix with imputation of NAs: <http://juliejosse.com/wp-content/uploads/2018/06/DataAnalysisMissingR.html>.
+
+> Bagging (Bootstrap aggregating) was originally proposed by Leo Breiman. It is one of the earliest ensemble methods (L, n.d.). When used in missing value imputation, it will use the remaining variables as predictors to train a bagging tree and then use the tree to predict the missing values. Although theoretically, the method is powerful, the computation is much more intense than KNN. In practice, there is a trade-off between computation time and the effect. If a median or mean meet the modeling needs, even bagging tree may improve the accuracy a little, but the upgrade is so marginal that it does not deserve the extra time. The bagging tree itself is a model for regression and classification. (see <https://scientistcafe.com/ids/missing-values.html>).
+
+One way to compare imputed matrix and raw matrix would be to impute missing values with the mean of the column, using the $k$ nearest neighbours, and a bagging tree in order to compare the output and how it deviates from the initial matrix. 
+
+```{r knnImpute}
+meta.sum.knn <- preProcess(meta.sum.preprocess, method = c("knnImpute")) # knn automatically scales and centers the data
+meta.sum.knnImp <- predict(meta.sum.knn, meta.sum.preprocess)
+```
+
+```{r save Imputed metadata, eval = FALSE}
+saveRDS(meta.sum.knnImp, "./R_Data/metadata_grouped_knnImp.rds")
+saveRDS(meta.sum.bagImp, "./R_Data/metadata_grouped_bagImp.rds")
+```
+
+
+```{r mean}
+NA2mean <- function(x){replace(x, is.na(x), mean(x, na.rm = TRUE))}
+meta.sum.mean <- meta.sum.preprocess %>%
+  mutate(across(.fns = NA2mean))
+```
+
+## Inspect imputed data sets
+
+```{r Prepare data}
+formatLong <- function(table, method){
+  if (method != "knn"){
+    table %>%
+      scale() %>%
+      as.data.frame %>% 
+      rownames_to_column("Sample") %>% 
+      select(-c("Depth_m","Longitude","Latitude")) %>%
+      pivot_longer(cols = !c("Sample"), names_to = "Variable", values_to = "Value") %>%
+      mutate(Method = as.factor(method))
+  } else {
+    table %>%
+      as.data.frame %>% 
+      rownames_to_column("Sample") %>% 
+      select(-c("Depth_m","Longitude","Latitude")) %>%
+      pivot_longer(cols = !c("Sample"), names_to = "Variable", values_to = "Value") %>%
+      mutate(Method = as.factor(method))
+  }
+}
+
+comp.raw <- formatLong(meta.sum[,var], method = "Raw") 
+comp.bag <- formatLong(meta.sum.bagImp, method = "Bag")
+comp.knn <- formatLong(meta.sum.knnImp, method = "knn")
+comp.mean <- formatLong(meta.sum.mean, method = "Mean")
+
+comp <- comp.raw %>% 
+  bind_rows(comp.bag, comp.knn, comp.mean)
+```
+
+
+```{r Compare distributions, fig.dim=c(15,7)}
+plotMethod <- function(method){
+  ggplot(data = comp %>% filter(Method == "Raw" | Method == method)) +
+    geom_boxplot(aes(x = Variable, y = Value, fill = Method),
+                 outlier.shape = "diamond",
+                 notch = TRUE) +
+    scale_fill_manual(values = c("#44015499","#35B77999")) + 
+    theme(axis.text.x = element_text(angle = 60, hjust = 1))
+}
+
+(plot.mean <- plotMethod("Mean"))
+(plot.bag <- plotMethod("Bag"))
+(plot.knn <- plotMethod("knn"))
+
+# plot_grid(plot.mean, plot.knn, plot.bag, nrow = 3)
+
+(plot.comp <- ggplot(data = comp %>% mutate(Variable = factor(Variable, levels=(miss_var_summary(meta.sum[,var]) %>% pull(variable))))) + # Order by number of NAs
+  geom_boxplot(aes(x = Variable, y = Value, fill = Method),
+               outlier.shape = "diamond",
+               notch = TRUE) +
+  scale_fill_npg(alpha = 0.8) +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1),
+        plot.background = element_rect(fill='transparent', color=NA)))
+```
+
+```{r ggsave Imputation comparison, eval = FALSE, include = FALSE}
+ggsave("./R_plots/Imputation_comparison.pdf", bg = 'transparent', height = 7, width = 15)
+```
+
+
+We see the imputation generally is bad when NA are replaced by the mean of the column. The comparison between the k nearest neighbours and bagging true is more tricky. It seems that there are less outliers introduced by the bagging tree method. As it seems that the notch usually has a better match between the raw data with the baggin tree method, this is the one we will further use.
+
+Extract some stats to compare the imputations, especially number of outliers as it is important to not introduce outliers during imputation, the diff summaries...
+
+```{r Summary diffs}
+# to check the diff between quartiles, median and mean in the two tables
+tmp <- do.call(cbind, lapply(meta.sum.preprocess %>% scale() %>% as.data.frame(), summary))
+tmp2 <- do.call(cbind, lapply(meta.sum.bagImp %>% scale() %>% as.data.frame(), summary))
+tmp[1:6,]-tmp2
+
+tmp <- do.call(cbind, lapply(meta.sum.preprocess %>% scale() %>% as.data.frame(), summary))
+tmp2 <- do.call(cbind, lapply(meta.sum.knnImp %>% as.data.frame(), summary))
+tmp[1:6,]-tmp2
+```
+
+```{r Function number of outliers}
+computeOutliers <- function(table){
+  iqr <- do.call(cbind, lapply(table %>% select(-c("Depth_m", "Latitude", "Longitude")), IQR, na.rm = TRUE))
+  lowerq <- do.call(cbind, lapply(table, quantile, na.rm = TRUE))[2,] # lower quantile
+  upperq <- do.call(cbind, lapply(table, quantile, na.rm = TRUE))[4,] # upper quantile
+  outliers.stats <- rbind(iqr, lowerq, upperq)
+  rownames(outliers.stats) <- c("iqr", "lowerq", "upperq")
+  
+  outliers.stats <- outliers.stats %>% 
+    t() %>% 
+    as.data.frame() %>%
+    # rownames_to_column(var = "Variable") %>% 
+    mutate(across(.cols = everything(), .fns = as.numeric),
+           Mild_threshold_upper = iqr*1.5 + upperq,
+           Mild_threshold_lower = lowerq - iqr*1.5) %>%
+    t() %>%
+    as.data.frame()
+  
+  n_outliers <- c()
+  for (i in 1:length(1:ncol(table))){
+    ind <- which(table[,i] > outliers.stats[4,i] | table[,i] < outliers.stats[5,i])
+    n_outliers <- c(n_outliers, length(ind))
+  }
+  
+  outliers.stats <- rbind(outliers.stats, n_outliers)
+  rownames(outliers.stats) <- c(rownames(outliers.stats)[-6],"Number_outliers")
+  return(outliers.stats)
+}
+```
+
+```{r Compute number of outliers, message = FALSE}
+(outliers.stats.raw <-  computeOutliers(table = meta.sum.preprocess))
+(outliers.stats.bag <- computeOutliers(table = meta.sum.bagImp))
+(outliers.stats.knn <- computeOutliers(table = meta.sum.knnImp))
+(outliers.stats.mean <- computeOutliers(table = meta.sum.mean))
+```
+
+```{r Diff number outliers, fig.dim = c(8,5)}
+diff.mean <- as.vector(as.data.frame(t(outliers.stats.mean))$Number_outliers - as.data.frame(t(outliers.stats.raw))$Number_outliers)
+diff <- data.frame(as.vector(diff.mean))
+rownames(diff) <- rownames(as.data.frame(t(outliers.stats.mean)))
+
+diff$diff.knn <- as.vector(as.data.frame(t(outliers.stats.knn))$Number_outliers - as.data.frame(t(outliers.stats.raw))$Number_outliers)
+diff$diff.bag <- as.vector(as.data.frame(t(outliers.stats.bag))$Number_outliers - as.data.frame(t(outliers.stats.raw))$Number_outliers)
+
+#diff <- data.frame(Mean = diff.mean, knn = diff.knn, Bag = diff.bag)
+
+colnames(diff) <- c("Mean","knn","Bag")
+diff <- diff %>% 
+  rownames_to_column(var = "Variable") %>% 
+  pivot_longer(cols = !c("Variable"), names_to = "Method", values_to = "Diff_number_outliers")
+diff
+
+ggplot(data = diff %>% mutate(Variable = factor(Variable, levels=(miss_var_summary(meta.sum[,var]) %>% pull(variable)))),
+       aes(x = Variable, y = Diff_number_outliers, fill = Method)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  scale_fill_manual(values = c("#00A087CC", "#4DBBD5CC", "#E64B35CC")) +
+  labs(y = "Diff number of outliers vs. raw") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1),
+        plot.background = element_rect(fill='transparent', color=NA),
+        axis.title.x = element_blank())
+```
+
+```{r ggsave diff outliers, eval = FALSE, include = FALSE}
+ggsave("./R_Plots/Diff_outliers.pdf", bg = 'transparent', height = 5, width = 10)
+```
+
+## Inspect effect of imputation in the TS space
+
+```{r Import TS diagram}
+plot.TS.all <- readRDS("./R_Data/plot_TS_all.rds")
+```
+
+
+```{r TS plots, fig.dim = c(8,5)}
+plotTS <- function(metadata, col = meta.group$Water_mass){
+  plot.TS.all +
+    geom_point(data = metadata,
+               aes(x = Salinity_PSS78, y = Temperature_ITS90,
+                   col = col),
+               size = 2.5) +
+    scale_colour_manual(values = wm.pal) +
+    labs(color = "Water mass",
+         x = "Practical Salinity (psu)",
+         y = "Conservative Temperature (°C)") +
+    theme_bw()
+}
+  
+plotTS(meta.sum)
+
+set.seed(13)
+meta.sum.bag <- preProcess(meta.sum.preprocess, method = c("bagImpute")) # Centered and scaled later on
+meta.sum.bagImp <- predict(meta.sum.bag, meta.sum.preprocess)
+plotTS(meta.sum.bagImp)
+
+set.seed(37)
+meta.sum.bag <- preProcess(meta.sum.preprocess, method = c("bagImpute")) # Centered and scaled later on
+meta.sum.bagImp <- predict(meta.sum.bag, meta.sum.preprocess)
+plotTS(meta.sum.bagImp)
+
+set.seed(1998)
+meta.sum.bag <- preProcess(meta.sum.preprocess, method = c("bagImpute")) # Centered and scaled later on
+meta.sum.bagImp <- predict(meta.sum.bag, meta.sum.preprocess)
+plotTS(meta.sum.bagImp)
+
+ggplot() +
+  geom_point(data = meta.sum.knnImp,
+             aes(x = Salinity_PSS78, y = Temperature_ITS90,
+                 col = meta.group$Water_mass),
+             size = 3) +
+  scale_colour_manual(values = wm.pal) +
+  labs(color = "Water mass",
+       x = "Practical Salinity (scaled)",
+       y = "Temperature (scaled)") +
+  theme_bw()  +
+  labs()
+
+(plot.TS.wm.simplified <- plotTS(meta.sum, col = meta.group$Water_mass_simplified) +
+  scale_colour_manual(values = wm.pal.sim) +
+  #labs(title = "Temperature-Salinity diagram defining water masses for ACE CTD samples") +
+  theme(legend.position = "bottom",
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 16)) + 
+    guides(col = guide_legend(title.position = "top", title.hjust = 0.5)))
+
+(plot.TS.wm.simplified <- plotTS(meta.sum, col = meta.group$Water_mass_simplified) +
+  scale_colour_manual(values = wm.pal.sim) +
+  #labs(title = "Temperature-Salinity diagram defining water masses for ACE CTD samples") +
+  theme(legend.position = "right",
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 16)))
+```
+
+The issue is that bag imputation sometimes introduces "outliers" in the T-S plot (not necessarily in the temperature or salinity range but in the association of the 2 variables). Therefore, we will use the *knn* imputed dataset for further analyses. 
+
+```{r ggsave TS plot water masses, eval = FALSE, include = FALSE}
+ggsave("./R_Plots/TS_water_masses_simplified_2.pdf", plot.TS.wm.simplified, width = 8, height = 4.5)
+```
+
+
+# Subset to metagenome samples
+
+```{r Subset metagenomes}
+meta.metaG <- meta[meta$ACE_seq_name %in% metagenomes$ace_seq_name,]
+dim(meta.metaG)
+
+meta.metaG.sum <- meta.metaG %>% 
+  select(-c("CTD_cast_number","TM_station_number","DNA_vol_µl","DNA_Conc_ng.µl","DNA_qty_ng","RNA_vol_µl","RNA_Conc_ng.µl","RNA_qty_ng","Size_fraction","Event_start_date","Event_end_date")) %>% 
+  group_by(Event_number, Depth_m,Depth_q, Longhurst_Prov) %>% 
+  summarise_if(.predicate = is.numeric, .funs = mean) %>%
+  mutate(Sample_name = paste(Event_number, Depth_m, sep = "_")) %>%
+  filter(Sample_name %in% rownames(meta.sum)) %>% 
+  column_to_rownames(var = "Sample_name")
+dim(meta.metaG.sum)
+
+meta.metaG.bagImp <- meta.sum.bagImp[rownames(meta.sum.bagImp) %in% rownames(meta.metaG.sum),] # subset the bag imputed table
+meta.metaG.knnImp <- meta.sum.knnImp[rownames(meta.sum.knnImp) %in% rownames(meta.metaG.sum),] # subset the bag imputed table
+```
+
+After grouping and summarizing, the subset of the table is done on the imputed table so that the imputation was computed with all possible samples and not on a reduced dataset. 
+
+```{r Chose table to run analyses on}
+meta.sum.knnImp.all <- meta.sum.knnImp
+
+# meta.sum.knnImp <- meta.metaG.knnImp # don't run if running analyses on all samples
+
+dim(meta.group) # needs to be subset accordingly if further using the subset of metagenomic samples
+dim(meta.sum.knnImp)
+
+meta.group.all <- meta.group
+# meta.group <- meta.group[rownames(meta.group) %in% rownames(meta.sum.knnImp),]
+
+dim(meta.group)
+```
+
+
+# PCA
+
+## All variables and all samples
+
+```{r Transformation and NA}
+plotNormalHistogram(meta.sum.knnImp) # centered and scaled while pre processing
+```
+
+```{r PCA}
+meta.pca <- rda(meta.sum.knnImp, scale=FALSE) # knn is already centered and scaled
+# Note that NaN values don't fail, why?
+summary(meta.pca)$cont
+```
+
+```{r Brocken stick}
+screeplot(meta.pca, bstick = TRUE, main = "Brocken stick - ACE CTD Metadata")
+```
+
+According to the brocken stick model, we should then have a look at the two first axes when wonsidering only samples where we have metagenomes, and at the third axis when considering all available CTD samples. 
+With all CTD samples:  
+* PC1 represents 40% of the variance
+* PC2 represents 17%
+* PC3 represents 10%  
+With CTD sampls where we have a metagenom:  
+* PC1 represents 
+* PC2 represents 
+
+```{r Function to rename variables}
+renameVariables <- function(x) {
+  # x vector of variable names
+  if (length(x == 26)) {
+    # Without factors
+    df <- x %>% t() %>% as.data.frame()
+    colnames(df) <- x
+    df <- df %>%
+      rename(
+        #"LV6" = "LV5_mean",
+        #"LV8" = "LV7_mean",
+        "dCd" = "dCd_nmol.kg",
+        "dFe" = "dFe_nmol.kg",
+        "dZn" = "dZn_nmol.kg",
+        "HDNA Bacteria" = "Bacteria_HDNA.cell.mL",
+        "LDNA Bacteria" = "Bacteria_LDNA.cell.mL",
+        "TPZT" = "TPZT_µM.C",
+        "POC" = "POC_µM",
+        "PON" = "PON.µmol",
+        "Fluorescence" = "Fluorescence_mg.m3",
+        "PAR" = "PAR_µmol.m2.s",
+        "Biological silica" = "Bsi_µM",
+        "Silicic acid" = "Silicic_acid_µmol.L",
+        "Nitrite" = "Nitrite_µmol.L",
+        "Nitrate" = "Nitrate_µmol.L",
+        "Phosphate" = "Phosphate_µmol.L",
+        "Ammonium" = "Ammonium_µmol.L",
+        "Dissolved O2" = "dO2_µmol.kg",
+        "Salinity" = "Salinity_PSS78",
+        "Temperature" = "Temperature_ITS90",
+        "Depth" = "Depth_m",
+        "Latitude" = "Latitude",
+        "Longitude" = "Longitude",
+        "NO2+NO3" = "NOx_µmol.L",
+        "Density" = "Density_kg.m2",
+        "Total bacteria" = "Tot_bacteria_cell.mL",
+        #"Distance to land" = "Distance_land"
+      )
+    renamed_x <- colnames(df)
+    renamed_x
+  }
+}
+```
+
+
+```{r Plot PCA, fig.dim=c(8,6)}
+(plot.pca.env <- ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Depth_q_new,
+      shape.vec = meta.group$Longhurst_Prov,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      draw.circle = FALSE,
+      scaling = 1) +
+  scale_color_npg() +
+  #scale_colour_viridis(discrete = TRUE) +
+  labs(col = "Depth", shape = "Longhurst province"))
+
+(plot.pca.env.prov <- ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Longhurst_Prov,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      draw.circle = TRUE,
+      scaling = 1,
+      spe.names = renameVariables) +
+  scale_color_npg() +
+  #scale_colour_viridis(discrete = TRUE) +
+  labs(col = "Longhurst province"))
+
+(plot.pca.env.depth <- ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Depth_q_new,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      draw.circle = TRUE,
+      scaling = 1,
+      spe.names = renameVariables) +
+  scale_color_npg() +
+  #scale_colour_viridis(discrete = TRUE) +
+  labs(col = "Depth"))
+
+(plot.pca.env.wm <- ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      draw.circle = TRUE,
+      scaling = 1,
+      spe.names = renameVariables) +
+  scale_colour_manual(values = wm.pal) +
+  labs(col = "Water mass"))
+
+(plot.pca.env.wm <- ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass_simplified,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      draw.circle = FALSE,
+      scaling = 1,
+      spe.names = renameVariables) +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(col = "Water mass")) +
+  theme(legend.position = c(0.70,0.875),
+        plot.title = element_blank()) +
+  guides(col = guide_legend(ncol = 2))
+
+(plot.pca.env.wm <- ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 3,
+      color.vec = meta.group$Water_mass_simplified,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      draw.circle = TRUE,
+      scaling = 1,
+      spe.names = renameVariables) +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(col = "Water mass"))
+```
+
+The clustering according to Longhurst province is not obvious, mainly we see ANTA and APLR clustering together but showing a depth gradient. Moreover, some samples belonging to the ANTA province from the surface or below 150 m mix with samples in the SSTC and SANT provinces. SSTC and SANT provinces samples mix, and some of them are closer to the ANTA and APLR samples, because they are deep samples. 
+
+Similarly when looking at the distribution of samples according to depth, the discrimination is not obvious, especially for samples at the surface and up to 150 m. 
+
+Water masses, however, seem to play a decisive role in determining where the sample falls in the PCA space.  
+
+```{r ggsave PCA all, eval = FALSE, include = FALSE}
+ggsave(filename = "./R_Plots/PCA_env_WM_simplified.svg", width = 7, height = 7)
+```
+
+
+```{r Select variables, fig.dim=c(8,6)}
+meta.pca.good <- goodness(meta.pca, model = "CA", choices = 1:3)
+
+ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass_simplified,
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      select.spe = meta.pca.good[,2]>0.40,
+      draw.circle = TRUE,
+      scaling = 1) +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(col = "Water mass") +
+  theme(legend.box.background = element_blank())
+
+ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Depth_q_new,
+      shape.vec = meta.group$Longhurst_Prov,
+      label.sites = FALSE,
+      select.spe = meta.pca.good[,2]>0.40,
+      scaling = 2) +
+  scale_color_npg() +
+  #scale_colour_viridis(discrete = TRUE) +
+  labs(col = "Longhurst", shape = "Depth")
+
+ggPCA(meta.pca, 
+      ax1 = 1, ax2 = 3,
+      color.vec = meta.group$Depth_q_new,
+      shape.vec = meta.group$Longhurst_Prov,
+      label.sites = TRUE,
+      select.spe = meta.pca.good[,3]>0.60,
+      scaling = 2) +
+  scale_color_npg() +
+  #scale_colour_viridis(discrete = TRUE) +
+  labs(col = "Longhurst", shape = "Depth") # PC3 driven by depth / density
+```
+
+```{r ggsave PCA sel, eval = FALSE, include = FALSE}
+ggsave("./R_plots/PCA_meta_ax3_outliers.pdf", width = 7, height = 6)
+```
+
+
+## ANTA and APLR
+
+```{r Subset ANTA APLR, fig.dim = c(8,6)}
+ant <- which(meta.group$Longhurst_Prov == "ANTA" | meta.group$Longhurst_Prov == "APLR")
+meta.ant <- meta.sum.knnImp[ant,]
+dim(meta.ant)
+#meta.ant$log.depth <- log(meta.ant$sampling.event..elevation..depth.below.sea.surface)
+
+meta.ant.pca <- rda(meta.ant, scale = FALSE)
+screeplot(meta.ant.pca, bstick = TRUE, main = "Brocken stick - ACE CTD Metadata ANTA-APLR")
+
+(plot.pca.ant <- ggPCA(meta.ant.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass_simplified[ant], #log(meta.ant$Depth_m),
+      shape.vec = meta.group$Longhurst_Prov[ant],
+      label.sites = TRUE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      scaling = 1,
+      draw.circle = TRUE,
+      spe.names = renameVariables) +
+  scale_color_manual(values = wm.pal.sim) +
+  #scale_colour_viridis(discrete = TRUE, na.value = "grey") +
+  labs(col = "Water mass", shape = "Longhurst"))
+
+(plot.pca.ant <- ggPCA(meta.ant.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = log(meta.group$Depth_m[ant]), #log(meta.ant$Depth_m),
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      scaling = 1,
+      draw.circle = TRUE,
+      spe.names = renameVariables) +
+  #scale_color_manual(values = wm.pal.sim) +
+  scale_colour_viridis(discrete = FALSE) +
+  labs(col = "log(Depth)"))
+```
+
+```{r ggsave PCA ant, eval = FALSE, include = FALSE}
+ggsave("./R_plots/PCA_env_metaG_ant1.pdf", width = 7, height = 6)
+```
+
+
+## Surface samples
+
+```{r PCA Subset surface, fig.dim = c(8,6)}
+surf <- meta.group$Water_mass %in% c("AASW","SASW","STSW","AASW-WW","WW","AASW-AAIW","SASW-AAIW","STSW-AAIW")
+meta.srf <- meta.sum.knnImp[surf,]
+dim(meta.srf)
+
+meta.srf.pca <- rda(meta.srf, scale = FALSE)
+screeplot(meta.srf.pca, bstick = TRUE, main = "Brocken stick - ACE CTD Metadata SW")
+
+(plot.pca.srf <- ggPCA(meta.srf.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass[surf], #log(meta.ant$Depth_m),
+      shape.vec = meta.group$Longhurst_Prov[surf],
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      scaling = 1,
+      draw.circle = TRUE,
+      spe.names = renameVariables) +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(col = "Water mass", shape = "Longhurst"))
+
+(plot.pca.srf <- ggPCA(meta.srf.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass_simplified[surf], #log(meta.ant$Depth_m),
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      scaling = 1,
+      draw.circle = TRUE,
+      spe.names = renameVariables) +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(col = "Water mass"))
+
+(plot.pca.srf <- ggPCA(meta.srf.pca, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass[surf], #log(meta.ant$Depth_m),
+      label.sites = FALSE,
+      label.spe = TRUE,
+      plot.spe = TRUE,
+      scaling = 1,
+      draw.circle = TRUE,
+      spe.names = renameVariables) +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(col = "Water mass"))
+```
+
+## With physical variables
+
+```{r PCA physical oceanography, eval = FALSE, include = FALSE}
+meta.pca.phys <- rda(meta.phys, scale = TRUE)
+summary(meta.pca.phys)$cont
+screeplot(meta.pca.phys, bstick = TRUE)
+```
+
+```{r Plot PCA meta phys, eval = FALSE, include = FALSE}
+ggPCA(meta.pca.phys, 
+      ax1 = 1, ax2 = 2,
+      color.vec = meta.group$Water_mass,
+      #shape.vec = meta.group$Depth_q_new,
+      label.sites = FALSE) +
+  scale_color_manual(values = wm.pal) +
+  #scale_colour_viridis(discrete = TRUE) +
+  labs(col = "Water mass", shape = "Depth")
+```
+
+
+# Match Latent Variables from Landwehr *et al.* (2021) with CTD samples
+
+```{r Load LV}
+landwehr <- read.table("./Metadata/landwehr_latent_variables_mean_3h.csv", header = T, sep = ",")
+head(landwehr)
+```
+
+```{r Parse datetime}
+landwehr <- landwehr %>% 
+  mutate(Date_time = ymd_hms(timest_)) %>%
+  select(-"timest_") %>% 
+  mutate(Date = date(Date_time))
+```
+
+```{r Parse date metadata}
+ctd_timest <- meta %>% 
+  select(c("Event_number","Event_end_date")) %>% 
+  mutate(Date_time = ymd_hms(Event_end_date)) %>%
+  group_by(Event_number) %>% 
+  summarise(Date_time = mean(Date_time)) %>% # Time stamp is the same for a same event
+  mutate(Sampling_type = as.factor("CTD")) # %>%  
+  #mutate(Date = date(Date_time)) # %>% 
+  # mutate(Date_time_new = round_date(Date_time, unit = "hour")))
+
+head(ctd_timest)
+
+meta_timest <- meta.udw %>%
+  filter(ACE_seq_name %in% metagenomes$ace_seq_name) %>%
+  select(c("Event_number","Event_end_date")) %>% 
+  mutate(Date_time = ymd_hms(Event_end_date)) %>%
+  group_by(Event_number) %>% 
+  summarise(Date_time = mean(Date_time)) %>% 
+  mutate(Sampling_type = as.factor("UDW")) %>%
+  bind_rows(ctd_timest)
+```
+
+```{r Match timestamps}
+matched_timest <- meta_timest %>%
+  full_join(landwehr, by = character()) %>%
+  mutate(diff = abs((Date_time.x%--%Date_time.y) / hours(1))) %>%
+  group_by(Date_time.y) %>%
+  filter(diff <= 1.5) %>%
+  ungroup() %>%
+  select(!diff)
+
+all.equal(matched_timest$Event_number, meta_timest$Event_number)
+colnames(matched_timest)
+matched_timest <- matched_timest %>% 
+  rename(Date_time_meta = Date_time.x,
+         Date_time_lv = Date_time.y)
+
+head(matched_timest)[,c(1:4,17:18)]
+```
+
+```{r Retrieve metadata table}
+meta.sum.lv.ctd <- meta %>%
+  select(c("Event_number","Event_end_date","Depth_m")) %>%
+  mutate(Date_time = ymd_hms(Event_end_date)) %>%
+  group_by(Event_number, Depth_m) %>%
+  summarise(Date_time = mean(Date_time)) %>% # 54 Event numbers because there are duplicated Event numbers between CTD and UDW samples
+  inner_join(matched_timest %>% filter(Sampling_type == "CTD")) %>% 
+  ungroup() %>% 
+  select(!c("Date_time","Date"))
+
+meta.sum.lv <- meta.udw %>% 
+  filter(ACE_seq_name %in% metagenomes$ace_seq_name) %>% 
+  select(c("Event_number","Event_end_date","Depth_m")) %>% 
+  mutate(Date_time = ymd_hms(Event_end_date)) %>%
+  group_by(Event_number, Depth_m) %>%
+  summarise(Date_time = mean(Date_time)) %>%
+  inner_join(matched_timest %>% filter(Sampling_type == "UDW")) %>% 
+  ungroup() %>% 
+  select(!c("Date_time","Date")) %>%
+  bind_rows(meta.sum.lv.ctd)
+
+tail(meta.sum.lv[,c(1:4,10,12,19)])
+```
+
+```{r Save matched lv table, eval = FALSE}
+saveRDS(object = meta.sum.lv, file = "./R_Data/matched_latent_variables.rds")
+```
+
+```{r Add size fractions}
+# Merge with metagenomes to discriminate size fractions
+
+meta.sum.lv.metaG <- meta %>% 
+  select(c("ACE_seq_name","Size_fraction","Event_number","Depth_m")) %>% 
+  inner_join(metagenomes, by = c("ACE_seq_name" = "ace_seq_name")) %>% 
+  select(-c("r1","r2","DNA.Genoscope.code")) %>% 
+  rename(Sample = sample, Group = group) %>%
+  inner_join(meta.sum.lv.ctd)
+  
+meta.sum.lv.metaG <- meta.udw %>% 
+  select(c("ACE_seq_name","Size_fraction","Event_number","Depth_m")) %>% 
+  inner_join(metagenomes, by = c("ACE_seq_name" = "ace_seq_name")) %>% 
+  select(-c("r1","r2","DNA.Genoscope.code")) %>% 
+  rename(Sample = sample, Group = group) %>%
+  inner_join(meta.sum.lv %>% filter(Sampling_type == "UDW")) %>% 
+  bind_rows(meta.sum.lv.metaG) %>% 
+  mutate(Metadata_sample_name = paste(Event_number, Depth_m, sep = "_")) %>% 
+  filter(Sampling_type == "CTD" | Metadata_sample_name != "2970_4") # 2970_4 is commmon for CTD and UDW 
+```
+
+```{r Svae matched lv table, eval = FALSE}
+saveRDS(object = meta.sum.lv.metaG, file = "./R_Data/matched_latent_variables_metagenomes.rds")
+```
+
+
+# Hierarchical clustering
+
+```{r hclust TS, fig.dim = c(10,5)}
+meta.sum.ts <- meta.sum.knnImp %>% select(c("Temperature_ITS90", "Salinity_PSS78")) %>% na.omit()
+
+dist.ts <- vegdist(meta.sum.ts, method = "euclidean")
+hclust.ts <- hclust(dist.ts, method = "average")
+# plot(hclust.ts, hang = -1)
+
+# ggdendrogram(hclust.ts)
+
+dendro <- as.dendrogram(hclust.ts)
+dendro.data <- dendro_data(dendro)
+dendro.labels <- dendro.data$labels %>% 
+  mutate(Event_number = as.numeric(sapply(str_split(label, "_"), getElement, 1)),
+         Depth = as.numeric(sapply(str_split(label, "_"), getElement, 2))) %>% 
+  arrange(Event_number, Depth)
+
+(plot.dendro <- ggplot(dendro.data$segments) +
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_text(data = dendro.labels,
+            aes(x = x, y = y, label = label, col = meta.group$Water_mass_simplified),
+            hjust = 1, angle = 90, size = 3) +
+  ylim(-0.5, 3) +
+  #scale_colour_brewer(palette = "Dark2") +
+  scale_colour_manual(values = wm.pal.sim) +
+  #labs(color = "TS k-mean cluster") +
+  labs(color = "Water mass") +
+  theme_dendro() +
+  theme(axis.title = element_blank(),
+        panel.grid = element_blank()))
+```
+
+```{r ggsave hclust cluster or WM, eval = FALSE, include = FALSE}
+ggsave("./R_Plots/Hclust_TS_WM.pdf", width = 9, height = 5)
+```
+
+
+```{r hclust all variables, fig.dim = c(10,6)}
+dist.all <- vegdist(meta.sum.knnImp, method = "euclidean") # %>% scale() if bag impute
+hclust.all <- hclust(dist.all, method = "average")
+
+ggdendrogram(hclust.all)
+
+dendro <- as.dendrogram(hclust.all)
+dendro.data <- dendro_data(dendro)
+
+dendro.labels <- dendro.data$labels %>% 
+  mutate(Event_number = as.numeric(sapply(str_split(label, "_"), getElement, 1)),
+         Depth = as.numeric(sapply(str_split(label, "_"), getElement, 2))) %>% 
+  arrange(Event_number, Depth)
+
+(plot.dendro <- ggplot(dendro.data$segments) +
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
+  geom_text(data = dendro.labels,
+            aes(x = x, y = y, label = label, col = meta.group$Water_mass_simplified),
+            hjust = 1, angle = 90, size = 3) +
+  #ylim(-0.5, 3) +
+  #scale_colour_brewer(palette = "Dark2") +
+  scale_colour_manual(values = wm.pal.sim) +
+  labs(color = "Water mass") +
+  theme_dendro() +
+  theme(axis.title = element_blank(),
+        panel.grid = element_blank()))
+```
+
+
+```{r PERMANOVA}
+permutest(betadisper(dist(meta.sum.knnImp), group = meta.group$Water_mass_simplified))
+# PERMANOVA cannot be conducted if this test is significant
+
+# adonis2(meta.sum.knnImp[!is.na(meta.group$Water_mass),] ~ meta.group$Water_mass, method = "euc", permutations = how(nperm=999))
+```
+
+
+# Merged CTD and UDW metadata files for metagenomic samples
+
+The aim here is to have a metadata file with 218 rows and describing all metagenomic samples for downstream biological analyses. As CTD and UDW sampling are not comparable with regards to the metadata variables, hence we will only merge tables for the grouping variables. 
+
+```{r Format UDW MertzGlacier}
+# Manually check on a map for each event in 
+# meta.udw[meta.udw$ACE_seq_name %in% metagenomes$ace_seq_name, ] %>% pull(Event_number)
+# 1104 1104 1349 1349 1350 1350 1352 1352 1354 1354 1480 1878 2970 2970
+
+#1104: TRUE.Surround?
+#Other: FALSE
+
+# For now just assign a "FALSE" to sample_34 which is in common with CTD data (cf. below)
+```
+
+
+
+```{r Merge CTD UDW grouping variables}
+metaG.CTD <- meta[meta$ACE_seq_name %in% metagenomes$ace_seq_name, ] # 206 samples x 93 variables
+
+metaG.CTD.id <- metaG.CTD %>% 
+  mutate(Metadata_sample_name = paste(Event_number, Depth_m, sep = "_"),
+         Sampling_type = as.factor("CTD")) %>% 
+  inner_join(meta.group, by = c("Event_number" = "Event_number",
+                                "Depth_m" = "Depth_m",
+                                "Depth_q" = "Depth_q",
+                                "Longhurst_Prov" = "Longhurst_Prov",
+                                "MertzGlacier" = "MertzGlacier")) %>%
+  select(c("ACE_seq_name","Sampling_type","Metadata_sample_name","Event_number","Depth_m","Depth_q","Depth_q_new","Size_fraction","Event_start_date","Event_end_date","Latitude","Longitude","Longhurst_Prov","MertzGlacier","Water_mass.y", "Water_mass_simplified", "Water_mass.col", "Water_mass_simplified.col")) %>% 
+  inner_join(metagenomes, by = c("ACE_seq_name" = "ace_seq_name")) %>% 
+  select(-c("r1","r2","DNA.Genoscope.code")) %>% 
+  rename(Sample = sample, Group = group, Water_mass = Water_mass.y)
+
+
+metaG.UDW.id <- meta.udw[meta.udw$ACE_seq_name %in% metagenomes$ace_seq_name, ] %>% # 14 samples x 87 variables (2 samples in common with CTD)
+  mutate(Metadata_sample_name = paste(Event_number, Depth_m, sep = "_"),
+         Sampling_type = as.factor("UDW"),
+         Depth_q_new = Depth_q, # As UDW are only SRF samples
+         Water_mass_simplified = Water_mass) %>% # As UDW are only SW
+  select(c("ACE_seq_name","Sampling_type","Metadata_sample_name","Event_number","Depth_m","Depth_q","Depth_q_new","Size_fraction","Event_start_date","Event_end_date","Latitude","Longitude","Longhurst_Prov","Water_mass","Water_mass_simplified")) %>% 
+  droplevels() %>% 
+  inner_join(metagenomes, by = c("ACE_seq_name" = "ace_seq_name")) %>% 
+  select(-c("r1","r2","DNA.Genoscope.code")) %>% 
+  rename(Sample = sample, Group = group) %>% 
+  mutate(Water_mass.col = Water_mass,
+         Water_mass_simplified.col = Water_mass_simplified)
+levels(metaG.UDW.id$Water_mass.col) <- c("#2FB0B7","#7C98A3")
+levels(metaG.UDW.id$Water_mass_simplified.col) <- c("#4DBBD5FF","#00A087FF")
+
+metaG.merged.id <- metaG.CTD.id %>% 
+  full_join(metaG.UDW.id)
+
+metaG.CTD.id[which(metaG.CTD.id$ACE_seq_name %in% metaG.UDW.id$ACE_seq_name),] # Samples in common between UDW and CTD
+
+metaG.merged.id <- metaG.merged.id %>% 
+  filter(Sampling_type == "CTD" | Metadata_sample_name != "2970_4") %>% # To not duplicate 2970_4
+  mutate(Event_start_date = ymd_hms(Event_start_date),
+         Event_end_date = ymd_hms(Event_end_date))
+
+# Assign MertzGlacier variable for sample 34 that is in common between CTD and UDW 
+metaG.merged.id[which(metaG.merged.id$Sample == "sample_34"),]$MertzGlacier = as.factor("FALSE")
+metaG.merged.id[which(metaG.merged.id$Sampling_type == "UDW" & metaG.merged.id$Event_number != 1104),]$MertzGlacier = as.factor("FALSE")
+metaG.merged.id[which(metaG.merged.id$Sampling_type == "UDW" & metaG.merged.id$Event_number == 1104),]$MertzGlacier = as.factor("TRUE.Surround")
+
+metaG.merged.id <- metaG.merged.id %>% 
+  arrange(Sample)
+```
+
+```{r Dist2land}
+# Compute distance to land for CTD and UDW samples
+metaG.merged.id <- dist2land(metaG.merged.id, lon = "Longitude", lat = "Latitude", cores = 4) %>% 
+  rename(Distance_land = ldist)
+```
+
+
+```{r Write merged tables, eval = FALSE}
+write.csv(metaG.merged.id, file = "./Metadata/metadata_metaG_merged_ID.csv")
+saveRDS(metaG.merged.id, file = "./R_Data/metadata_metaG_grouping_variables.rds")
+```
+
+
+# CTD and UDW metadata table for metagenomic samples
+
+The aim here is to build a metadata table that matches CTD metagenomic samples, including the size fractions. We will build a similar table for UDW samples, but those tables do not need to be matched since the environmental variables are not comparable. 
+
+This was also done in the script where it was needed but we write it here so as to only load one table at the beginning of the downstream scripts, creating a table that includes size fractions (as this will be needed in analyses involving metagenomes).
+
+```{r Metadata subset to metagenomes}
+meta.metaG.knnImp <- meta.sum.knnImp %>% 
+  rownames_to_column(var = "Metadata_sample_name") %>% 
+  inner_join(metaG.merged.id, by = "Metadata_sample_name") %>% 
+  select(-c(Depth_m.y, Latitude.y, Longitude.y)) %>% # keep centered-scaled duplicated variables
+  rename(Depth_m = Depth_m.x,
+         Longitude = Longitude.x,
+         Latitude = Latitude.x)
+
+meta.metaG <- meta.sum.preprocess %>% 
+  rownames_to_column(var = "Metadata_sample_name") %>% 
+  inner_join(metaG.merged.id, by = "Metadata_sample_name") %>% 
+  select(-c(Depth_m.y, Latitude.y, Longitude.y)) %>% # keep centered-scaled duplicated variables
+  rename(Depth_m = Depth_m.x,
+         Longitude = Longitude.x,
+         Latitude = Latitude.x)
+
+meta.metaG.bagImp <- meta.sum.bagImp %>% 
+  rownames_to_column(var = "Metadata_sample_name") %>% 
+  inner_join(metaG.merged.id, by = "Metadata_sample_name") %>% 
+  select(-c(Depth_m.y, Latitude.y, Longitude.y)) %>% # keep centered-scaled duplicated variables
+  rename(Depth_m = Depth_m.x,
+         Longitude = Longitude.x,
+         Latitude = Latitude.x)
+```
+
+```{r Write metadata for metagenomes, eval = FALSE}
+saveRDS(meta.metaG.knnImp, file = "./R_Data/metadata_metaG_knnImp.rds")
+saveRDS(meta.metaG.bagImp, file = "./R_Data/metadata_metaG_bagImp.rds")
+saveRDS(meta.metaG, file = "./R_Data/metadata_metaG_preprocessed.rds")
+```
+
+
+```{r Summary of metagenome associated metadata}
+meta.metaG %>% 
+  group_by(Water_mass_simplified) %>% 
+  summarize_if(.predicate = is.numeric, .funs = list(mean = mean, sd = sd), na.rm = TRUE)
+
+# Number of observations
+meta.metaG %>% 
+  group_by(Water_mass_simplified) %>% 
+  summarize(Nb_observations = n()) # this includes NAs because there are a different number for each variable
+```
+
