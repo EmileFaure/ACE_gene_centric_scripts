@@ -3,9 +3,10 @@ require(tidyverse)
 require(lubridate)
 
 # ------------ Load data ------------
+# Downloaded ace_ctd_CTD20200406CURRSGCMR processed files from Henry et al., 2020 (https://zenodo.org/records/3813646#.YoyoVC0iv0o).
 files <- list.files(path = "./Metadata/ACE_CTD_Profile_Data", pattern = "*.csv", full.names = TRUE)
 
-# ------------ Process ------------
+# ------------ Process --------------
 ctd.profile.data <- tibble()
 ctd.headers <- tibble()
 

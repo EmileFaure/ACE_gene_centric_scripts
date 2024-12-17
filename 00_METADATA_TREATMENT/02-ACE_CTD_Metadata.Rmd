@@ -48,16 +48,16 @@ require(ggOceanMapsData)
 ```
 
 ```{r Sources}
-source("./R_Functions/ggPCA.R")
-source("./R_Functions/ggRDA.R")
+source("../HOME_FUNCTIONS/ggPCA.R")
+source("../HOME_FUNCTIONS/ggRDA.R")
 ```
 
 
 ```{r Read data}
-meta <- read.table(file = "./Metadata/meta_CTD_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = FALSE) # fileEncoding="CP1252"
+meta <- read.table(file = "./Metadata/meta_CTD_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = FALSE)
 str(meta)
 
-meta.udw <- read.table(file = "./Metadata/meta_UDW_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = TRUE) # fileEncoding="CP1252"
+meta.udw <- read.table(file = "./Metadata/meta_UDW_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = TRUE)
 str(meta.udw) 
 
 metagenomes <- read.table("./Metadata/ACEsamples_With_Ace_seq_name.tsv", header = TRUE) # File listing samples with metagenomes
@@ -72,7 +72,7 @@ This requires getting rid of some columns (especially the sequencing variables, 
 ```{r Format factors}
 meta <- meta %>% 
   mutate(MertzGlacier.new = case_when(MertzGlacier == "FAUX" ~ "FALSE",
-                                      TRUE ~ MertzGlacier)) %>%
+                                      TRUE ~ "TRUE")) %>% 
   mutate(MertzGlacier = as.factor(MertzGlacier.new)) %>% 
   select(-MertzGlacier.new)
 
@@ -89,11 +89,11 @@ meta.filtered <- meta %>%
 
 meta.filtered.phys <- meta.filtered
 
-meta.filtered <- meta.filtered %>% select(-c(contains("Glorys"))) # Leave out physical and dynamical properties for now
+meta.filtered <- meta.filtered %>% select(-c(contains("Glorys"))) # Leave out physical and dynamical properties
 glimpse(meta.filtered)
 ```
 
-Here we group by event number and depth, hence the size fractions (which affect the biology) will be pooled, as the physics and chemistry are the same regardless of the filter. To create a metadata file that matches metagenome samples, we will need to include the size fraction column. 
+Here we group by event number and depth, hence the size fractions (which affect the biology) will be pooled, as the physics and chemistry are repeated values for the different filters (we could have taken values from samples of SF <0.2 µm as well). To create a metadata file that matches metagenome samples, we will need to include the size fraction column. 
 
 ```{r Group metadata}
 meta.sum <- meta.filtered %>%
@@ -131,7 +131,7 @@ meta.phys <- meta.phys %>%
 ```
 
 
-```{r Save grouped metadata, eval = FALSE}
+```{r Save grouped metadata, eval = FALSE, include = FALSE}
 saveRDS(meta.sum, file = "./R_Data/metadata_grouped.rds")
 ```
 
@@ -191,7 +191,7 @@ meta.group <- meta.group %>%
 head(meta.group)
 ```
 
-Because it is a qualitative variable with many levels, we will need to create a palette for water masses. 
+Because it is a qualitative variable with many levels, we need to create a palette for water masses. 
 
 ```{r Create palette for water masses}
 scales::show_col(colorRampPalette(pal_npg()(10))(14))
@@ -209,7 +209,7 @@ levels(meta.group$Water_mass_simplified.col) <- wm.pal.sim
 ```
 
 
-```{r Save grouping variables, eval = FALSE}
+```{r Save grouping variables, eval = FALSE, include = FALSE}
 saveRDS(meta.group, file = "./R_Data/metadata_grouping_variables.rds")
 ```
 
@@ -270,7 +270,7 @@ meta.sum.knn <- preProcess(meta.sum.preprocess, method = c("knnImpute")) # knn a
 meta.sum.knnImp <- predict(meta.sum.knn, meta.sum.preprocess)
 ```
 
-```{r save Imputed metadata, eval = FALSE}
+```{r save Imputed metadata, eval = FALSE, include = FALSE}
 saveRDS(meta.sum.knnImp, "./R_Data/metadata_grouped_knnImp.rds")
 saveRDS(meta.sum.bagImp, "./R_Data/metadata_grouped_bagImp.rds")
 ```
@@ -279,7 +279,7 @@ saveRDS(meta.sum.bagImp, "./R_Data/metadata_grouped_bagImp.rds")
 ```{r mean}
 NA2mean <- function(x){replace(x, is.na(x), mean(x, na.rm = TRUE))}
 meta.sum.mean <- meta.sum.preprocess %>%
-  mutate(across(.fns = NA2mean))
+  mutate(across(.cols = everything(), .fns = NA2mean))
 ```
 
 ## Inspect imputed data sets
@@ -344,7 +344,7 @@ ggsave("./R_plots/Imputation_comparison.pdf", bg = 'transparent', height = 7, wi
 ```
 
 
-We see the imputation generally is bad when NA are replaced by the mean of the column. The comparison between the k nearest neighbours and bagging true is more tricky. It seems that there are less outliers introduced by the bagging tree method. As it seems that the notch usually has a better match between the raw data with the baggin tree method, this is the one we will further use.
+We see the imputation generally is bad when NA are replaced by the mean of the column. The comparison between the k nearest neighbours and bagging tree is more tricky. It seems that there are less outliers introduced by the bagging tree method. As it seems that the notch usually has a better match between the raw data with the bagging tree method, this is the one we will further use.
 
 Extract some stats to compare the imputations, especially number of outliers as it is important to not introduce outliers during imputation, the diff summaries...
 
@@ -430,7 +430,7 @@ ggsave("./R_Plots/Diff_outliers.pdf", bg = 'transparent', height = 5, width = 10
 ## Inspect effect of imputation in the TS space
 
 ```{r Import TS diagram}
-plot.TS.all <- readRDS("./R_Data/plot_TS_all.rds")
+plot.TS.all <- readRDS("./R_Data/TS_plot_all.rds")
 ```
 
 
@@ -497,7 +497,7 @@ ggplot() +
         legend.title = element_text(size = 16)))
 ```
 
-The issue is that bag imputation sometimes introduces "outliers" in the T-S plot (not necessarily in the temperature or salinity range but in the association of the 2 variables). Therefore, we will use the *knn* imputed dataset for further analyses. 
+**The bagging tree imputation sometimes introduces "outliers" in the T-S plot (not necessarily in the temperature or salinity range but in the association of the 2 variables). Therefore, we will use the *knn* imputed dataset for further analyses. **
 
 ```{r ggsave TS plot water masses, eval = FALSE, include = FALSE}
 ggsave("./R_Plots/TS_water_masses_simplified_2.pdf", plot.TS.wm.simplified, width = 8, height = 4.5)
@@ -528,13 +528,18 @@ After grouping and summarizing, the subset of the table is done on the imputed t
 ```{r Chose table to run analyses on}
 meta.sum.knnImp.all <- meta.sum.knnImp
 
+###### Run if only samples with metagenomes wanted ########
 # meta.sum.knnImp <- meta.metaG.knnImp # don't run if running analyses on all samples
+###########################################################
 
 dim(meta.group) # needs to be subset accordingly if further using the subset of metagenomic samples
 dim(meta.sum.knnImp)
 
 meta.group.all <- meta.group
+
+###### Run if only samples with metagenomes wanted ########
 # meta.group <- meta.group[rownames(meta.group) %in% rownames(meta.sum.knnImp),]
+###########################################################
 
 dim(meta.group)
 ```
@@ -558,14 +563,14 @@ summary(meta.pca)$cont
 screeplot(meta.pca, bstick = TRUE, main = "Brocken stick - ACE CTD Metadata")
 ```
 
-According to the brocken stick model, we should then have a look at the two first axes when wonsidering only samples where we have metagenomes, and at the third axis when considering all available CTD samples. 
+According to the brocken stick model, we should then have a look at the two first axes when considering only samples where we have metagenomes, and at the third axis when considering all available CTD samples. 
 With all CTD samples:  
 * PC1 represents 40% of the variance
 * PC2 represents 17%
 * PC3 represents 10%  
-With CTD sampls where we have a metagenom:  
-* PC1 represents 
-* PC2 represents 
+With CTD samples where we have a metagenome:  
+* PC1 represents 37%
+* PC2 represents 19%
 
 ```{r Function to rename variables}
 renameVariables <- function(x) {
@@ -962,7 +967,7 @@ meta.sum.lv.metaG <- meta.udw %>%
   filter(Sampling_type == "CTD" | Metadata_sample_name != "2970_4") # 2970_4 is commmon for CTD and UDW 
 ```
 
-```{r Svae matched lv table, eval = FALSE}
+```{r Save matched lv table metagenomes, eval = FALSE}
 saveRDS(object = meta.sum.lv.metaG, file = "./R_Data/matched_latent_variables_metagenomes.rds")
 ```
 
@@ -1036,7 +1041,7 @@ dendro.labels <- dendro.data$labels %>%
 
 ```{r PERMANOVA}
 permutest(betadisper(dist(meta.sum.knnImp), group = meta.group$Water_mass_simplified))
-# PERMANOVA cannot be conducted if this test is significant
+# PERMANOVA should not conducted if this test is significant, however PERMANOVA is not too sensitive to dispersion effects
 
 # adonis2(meta.sum.knnImp[!is.na(meta.group$Water_mass),] ~ meta.group$Water_mass, method = "euc", permutations = how(nperm=999))
 ```
@@ -1112,7 +1117,7 @@ metaG.merged.id <- metaG.merged.id %>%
 
 ```{r Dist2land}
 # Compute distance to land for CTD and UDW samples
-metaG.merged.id <- dist2land(metaG.merged.id, lon = "Longitude", lat = "Latitude", cores = 4) %>% 
+metaG.merged.id <- dist2land(metaG.merged.id, lon = "Longitude", lat = "Latitude") %>% 
   rename(Distance_land = ldist)
 ```
 

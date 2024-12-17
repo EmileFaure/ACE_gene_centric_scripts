@@ -30,7 +30,7 @@ require(ggrepel)
 ```{r Load data}
 ctd.profile.data <- readRDS("./R_Data/CTD_profile_data.rds") # CTD data concatenated in long format df
 head(ctd.profile.data)
-#length(table(ctd.profile.data$EVENTNBR))
+length(table(ctd.profile.data$EVENTNBR))
 ctd.profile.data$EVENTNBR <- as.factor(ctd.profile.data$EVENTNBR)
 
 meta <- read.table(file = "./Metadata/meta_CTD_ess_V4_4.csv", header=TRUE, sep = ";", dec = ".", stringsAsFactors = TRUE) # Metadata to get event numbers
@@ -40,32 +40,25 @@ meta.sum <- meta %>%
   select("Event_number","Depth_m","Latitude","Longitude","Temperature_ITS90","Salinity_PSS78","Density_kg.m2","dO2_µmol.kg", "Water_mass_detailed") %>% 
   group_by(Event_number, Depth_m, Water_mass_detailed) %>% # Remove filter information 
   summarize_if(.predicate = is.numeric, .funs = mean)
-
-# meta.group <- readRDS("./R_Data/metadata_metaG_grouping_variables.rds")
-# #length(unique(meta.group$Event_number))
-# meta.group <- meta.group %>% 
-#   mutate(Event_number = as.factor(meta.group$Event_number)) %>%
-#   filter(Sampling_type == "CTD")
 ```
 
+The README file accompanying the metadata in Henry *et al.* (2020) describes quality flags as follow:
+
+> Quality Flags
+Each variable was inspected and quality flags (WHP-Exchange Format, Barna, Swift and Diggs, 2016; https://exchange-format.readthedocs.io/en/latest/) applied using the following conditions:
+* Flag 1 Not Calibrated - Oxygen variables (CTD) flagged until comparison with bottle samples or suitable climatology dataset e.g. GLODAP, WOCE or WOA  
+* Flag 2 Acceptable Measurement  
+* Flag 3 Questionable Measurement - CTDTEMP or CTDSAL failed spike or gradient tests (SeaDataNet Data Quality Control Procedures Version 2.0). BACKSC where > 50 % of values flagged as Flag 4, see below.  
+* Flag 4 Bad Measurement - Bad flag applied during Sea-Bird Data Processing Modules, scan variable value is negative number, variable value identified as being anomalous at beginning or end of upcast or downcast during visual inspection (see ace_ctd_visual_inspection.csv for full list of data points identified), values fall outside acceptable sensor specific ranges (see information on sensor specific flagging below).  
+* Flag 5 Not Reported - No instances where this was applied. 
+* Flag 6 Interpolated over pressure interval larger than 2dbar. 
+* Flag 7 Despiked - No instances where this was applied.  
+* Flag 9 Not Sampled - Sensor was not connected. 
+Flags can be identified from the following header format [PARAMETER]_FLAG_W (WHP Exchange Format).  
+
+We here remove flags 3 and 4 for salinity, temperature and oxygen. 
+
 ```{r Filter quality flags}
-# ctd.profile.filtered <- ctd.profile.data %>% 
-#   filter(CTDTMP_FLAG_W !=3,
-#          CTDTMP_FLAG_W !=4,
-#          CTDSAL_FLAG_W !=3,
-#          CTDSAL_FLAG_W !=4) # Deleted 39 values flagged with 3 or 4 (cf. README)
-
-# Or replace with NAs
-# ctd.profile.filtered <- ctd.profile.data %>% 
-#   mutate(CTDTMP_QUAL = case_when((CTDTMP_FLAG_W == 3 | CTDTMP_FLAG_W == 4) ~ NA,
-#                                  TRUE ~ as.numeric(as.character(CTDTMP)))) %>% 
-#   mutate(CTDSAL_QUAL = case_when(CTDSAL_FLAG_W ==3 | CTDSAL_FLAG_W ==4 ~ NA,
-#                             TRUE ~ as.numeric(as.character(CTDSAL)))) %>% 
-#   mutate(CTDOXY_QUAL = case_when(CTDOXY_FLAG_W == 3 | CTDOXY_FLAG_W ==4 ~ NA,
-#                             TRUE ~ as.numeric(as.character(CTDOXY))))
-
-  
-# Other solution
 CTDTMP_QUAL <- ctd.profile.data$CTDTMP
 CTDTMP_QUAL[which(ctd.profile.data$CTDTMP_FLAG_W %in% c(3,4))] <- NA
 CTDSAL_QUAL <- ctd.profile.data$CTDSAL
@@ -77,15 +70,16 @@ ctd.profile.filtered <- ctd.profile.data %>%
   mutate(CTDTMP = CTDTMP_QUAL) %>% # , .after = CTDTMP
   mutate(CTDSAL = CTDSAL_QUAL) %>% # , .after = CTDSAL
   mutate(CTDOXY = CTDOXY_QUAL) # , .after = CTDOXY
-
 ```
+
+Check availability of CTD profiles for metadata and metagenomic samples. These are the events not available in in CTD profiles.
 
 ```{r Check availability of CTD profiles}
 meta.sum[which(!meta.sum$Event_number %in% ctd.profile.filtered$EVENTNBR),]
 ```
 
-Event 75 is not available as a CTD profile when it is in the metadata. Hence we will not be able to classify this sample's water mass.
-Note that event 317 is not in the metagenomes dataset but include here all available CTD profiles for the metadata.
+Event 75 is not available as a CTD profile while it is in the metadata. Hence we will not be able to classify this sample's water mass based on the CTD data.
+Note that event 317 is not in the metagenomes dataset but included here with all available CTD profiles for the metadata.
 
 # Compute absolute salinity and potential temperature
 
@@ -140,7 +134,7 @@ ctd <- ctd.profile.filtered %>%
 ```
 
 ```{r ggsave TS plot, eval = FALSE, include = FALSE}
-ggsave("./R_Data/TS_plot_all.rds", plot.TS.all)
+saveRDS(plot.TS.all, "./R_Data/TS_plot_all.rds")
 ```
 
 
@@ -284,9 +278,9 @@ for (event in unique(ctd %>% filter(CASTTYPE == "downcast", CTDSAL >= 33.6, CTDS
 ```
 
 
-# Oxygen - Salinity and Oxygen - Temperature plots
+# Oxygen-Salinity and Oxygen-Temperature plots
 
-In order to determine water masses and remove some ambiguity around some samples, we will need to also add salinity oxygen plots to our data.
+In order to determine water masses and remove some ambiguity around some samples, we need to also add salinity oxygen plots to our data.
 
 Notes from the data collection:
 
@@ -402,7 +396,4 @@ for (event in unique(ctd$EVENTNBR)){
   }
 }
 ```
-
-
-
 
