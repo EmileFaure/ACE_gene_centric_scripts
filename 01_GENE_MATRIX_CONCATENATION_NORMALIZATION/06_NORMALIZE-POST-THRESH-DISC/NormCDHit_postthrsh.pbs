@@ -13,7 +13,7 @@
 # DO NOT MODIFY
 
 TIMESTAMP=$(date +%Y-%m-%d_%Hh%Mm%Ss)
-LOG1="R_AGNOSTOS_Norm_cov_TMAX60"_"$TIMESTAMP"".alone.log"
+LOG1="R_CDHit_Norm_cov_TMAX60"_"$TIMESTAMP"".alone.log"
 
 ########################################
 ##      Load environment              ##
@@ -30,5 +30,5 @@ WORKDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/scripts/GEN
 LOGDIR=/home/datawork-lmee-intranet-nos/ACE/Megahit_single_assembly/output_anvio_REF/00_REF_LOGS
 cd $WORKDIR
 
-Rscript NormAgnostos_postthrsh_TMAX60.R >> $LOGDIR/$LOG1 2>&1
+Rscript NormCDHit_postthrsh_TMAX60.R >> $LOGDIR/$LOG1 2>&1
 
