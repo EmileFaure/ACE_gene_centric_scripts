@@ -9,6 +9,16 @@ source("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/R_scripts/RDA/sco
 Gene_Mat=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/GM_AGN_T60MAXGQ_transposed_NZVuniquecut20_FL_RSquared10.rds")
 Envi_Mat=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/Metadata_GeneMat_KNN_MertzTF_1099Corr.rds")
 Group_Var=readRDS("/home/datawork-lmee-intranet-nos/ACE/06-STATS-GENE-MAT/metadata_metaG_grouping_variables.rds")
+#The sign of some latent variables needs to be inversed to be interpreted as in the Landwehr et al. study
+#Mail from Landwehr : "We have chosen to change the signs of some of the LVs that where produced by the algorithm, in order to make them align with certain physical processes"
+#Also note that here LV are from 0 to 13, like in the data provided by Landwehr et al., need to add one to each LV number to match their study.
+Envi_Mat$LV3_mean = -Envi_Mat$LV3_mean
+Envi_Mat$LV12_mean = -Envi_Mat$LV12_mean
+Envi_Mat$LV4_mean = -Envi_Mat$LV4_mean
+Envi_Mat$LV11_mean = -Envi_Mat$LV11_mean
+Envi_Mat$LV10_mean = -Envi_Mat$LV10_mean
+Envi_Mat$LV5_mean = -Envi_Mat$LV5_mean
+Envi_Mat$LV9_mean = -Envi_Mat$LV9_mean
 
 # Pre-investigations and processing
 
